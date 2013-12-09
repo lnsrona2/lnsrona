@@ -1,3 +1,5 @@
+#ifndef _C0_H_
+#define _C0_H_
 #include <stdio.h>
 
 #define norw       7             // no. of reserved words
@@ -97,8 +99,10 @@ struct{
     long addr;
 }table[txmax+1];
 
-char infilename[80];
-FILE* infile;
+char infilename[80]; 
+char outfilename[80]; //added by Yupeng
+FILE* infile; 
+FILE* outfile; //added by Yupeng
 
 // the following variables for block
 long dx;		// data allocation index
@@ -108,3 +112,5 @@ long tx;		// current table index
 // the following array space for interpreter
 #define stacksize 50000
 long s[stacksize];	// datastore
+
+#endif //if! _C0_H_

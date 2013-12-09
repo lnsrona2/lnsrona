@@ -180,7 +180,9 @@ typedef struct astnode{
 		Program	program;	
 		Block block;			// block 块
 		Vdecl vdecl;
-		Cdecl cdecl;
+		Cdecl cdeclar; 
+			//"cdecl" is a common world represent C style calling convention, suggest aother name here
+			//name in "cdecl" caused build break in MSVC 12(VS 2013)
 		Assn assn;
 		FunctionDef functiondef;
 		MainDef maindef;

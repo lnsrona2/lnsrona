@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <common.h>
-Table symtab;
-ASTTree ast;
+extern Table symtab;
+extern ASTTree ast;
 %}
 %union{
 	int ival;
@@ -288,20 +288,4 @@ Exp     	: number
 yyerror(char *message)
 {
 	printf("%s\n",message);
-}
-
-
-int main(int argc, char *argv[])
-{
-	symtab = newTable();
-	ast = newAST();
-	printf("Parsing ...\n");
-	yyparse();
-	printf("\n\nDump the program from the generated AST:\n  ");
-	dumpAST(ast->root);
-	destroyAST(&ast->root);
-	printf("\n\nFinished destroying AST.\n");
-	destroyTable(&symtab);
-	printf("\n\nFinished destroying symbolic table.\n");
-	return(0);
 }

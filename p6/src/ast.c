@@ -143,7 +143,7 @@ ASTNode newCdecl(ASTNode assn,ASTNode cdelf)
 	new->kind = KCdecl;
 	Cdecl newcdel;
 	NEW0(newcdel);
-	new->cdecl = newcdel;
+	new->cdeclar = newcdel;
 
 	newcdel->assn = assn;
 	newcdel->cdelf =  cdelf;
@@ -400,7 +400,7 @@ void destroyAST(ASTNode *pnode)
 		destroyVdecl(&node->vdecl);
 		break;
 	case KCdecl:
-		destroyCdecl(&node->cdecl);
+		destroyCdecl(&node->cdeclar);
 		break;
 	case KRelation:
 		destroyRelation(&node->relation);
@@ -521,8 +521,8 @@ dumpAST(ASTNode node)
 		for(j=i;j>0;j--)
 			printf("\t");
 		printf("const int ");
-		dumpAST(node->cdecl->assn);
-		dumpAST(node->cdecl->cdelf);
+		dumpAST(node->cdeclar->assn);
+		dumpAST(node->cdeclar->cdelf);
 		printf(";\n");
 		break;
 	}

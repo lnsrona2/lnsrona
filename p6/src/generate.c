@@ -5,12 +5,12 @@
 #include "C0.h"
 
 void gen(enum fct x, long y, long z){
-    if(cx>cxmax){
+	if(cx>cxmax){
 	printf("program too long\n");
 	exit(1);
-    }
-    code[cx].f=x; code[cx].l=y; code[cx].a=z;
-    cx=cx+1;
+	}
+	code[cx].f=x; code[cx].l=y; code[cx].a=z;
+	cx=cx+1;
 }
 
 void Print(instruction *code){
@@ -113,9 +113,9 @@ void generate(ASTNode node)
 			}
 			case KCdecl:  
 			{
-				generate(node->cdecl->assn);
+				generate(node->cdeclar->assn);
 				dx++;
-				generate(node->cdecl->cdelf);
+				generate(node->cdeclar->cdelf);
 				break;
 			}
 			case KAssn:
