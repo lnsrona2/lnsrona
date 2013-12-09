@@ -16,42 +16,41 @@ void generate(ASTNode node)
 {
    if(node != NULL){
 	int kind = node->kind;
-
 	switch (kind) {
 	case KValue:
 	{
-		gen ( lit , 0 , root->value ) ;
+		gen (lit,0,root->value) ;
 		break;
 	}
 	case KName:
 	{
-		int l e v ;
- 		int v a l = g e t V a l ( symtab , tptr, root->sym->name) ;
- 		long addr = getAddr ( symtab , tptr, root->sym->name,&lev) ;
-		switch ( r o o t −>sym−>type ) {
-
-
-			case 0 : gen ( l i t , 0 , v a l ) ;
-
-			break ;
-			case 1 : gen ( lod , abs ( l e v − ( t p t r != NULL) ) ,addr ) ;
-			break ;
-
-			case 2 : p r i n t f ( ” u s e ␣ f u n c t i o n ␣name␣ i n ␣ exp \n” ) ;
-			 e x i t ( −1) ;
-			break;
+		int lev ;
+ 		int val=getval (symtab,tpt,root->sym->name) ;
+ 		long addr=getAddr(symtab,tpt,root->sym->name,&lev) ;
+		switch (root−>sym−>type) {
+			case 0 : 
+				gen(lit,0,val) ;
+				break ;
+			case 1 : 
+				gen(lod,abs(lev−(tptr != NULL) ),addr) ;
+				break ;
+			case 2 : 
+				printf ("use functionname in exp \n" );
+				exit ( −1) ;
+				break;
 		}
+		break;
 	}
 	case KParenExp:
 	{
-		g e n e r a t e ( symtab , r o o t −>exp−>k i d s [ 0 ] ) ;
+		generate(symtab,root->exp->kid[0]);
 		break;
 	}
 	case KInfixExp:
 	{
 		generate(symtab,root->exp->kid[0]);
 		if(root->exp->op==op_xx){
-			ge n e r a t e ( symtab , r o o t −>exp−>k i d s [ 1 ] ) ;
+			generate(symtab,root->exp->kid[1]);
 			switch(root->exp->op){
 				case PLUS:
 					gen(opr,0,2);break;
@@ -71,7 +70,7 @@ void generate(ASTNode node)
 	{
 		Genarate(node->exp->kids[1]);
 		Generate(node->exp->kids[0]);
-		gen(sar,0,0)
+		gen(sto,0,dx)
 		break; 
 	}
 	case KProgram:  
@@ -93,9 +92,9 @@ void generate(ASTNode node)
 	}
 	case KVdecl:  
 	{
-		setAddr ( symtab , t p t r , dx , r o o t −>v d e c l −>i d e n t −>sym−>name ) ;
+		setAddr(symtab,tptr,dx,root−>vdecl−>name);
  		dx ++;
- 		g e n e r a t e ( symtab , r o o t −>v d e c l −>v a r d e f ) ;
+ 		generate(symtab , root −>vdecl−>vdelf ) ;
 		break;
 	}
 	case KVdelf:  
@@ -104,7 +103,6 @@ void generate(ASTNode node)
 		ListItr itr = newListItr(stmts, 0);
 		while ( hasNext(itr) ){
 			generate((ASTNode)nextItem(itr));
-	//		printf("\n");
 		}
 		destroyListItr(&itr);
 		break;		
@@ -112,14 +110,15 @@ void generate(ASTNode node)
 
 	case KCdecl:  
 	{
-		
+		generate(root->cdecl->assn);
+ 		dx ++;
+ 		generate(symtab , root −>cdecl−>cdelf ) ;
 		break;
 	}
 	case KAssn:
 	{
-		addr(symtab,name);
-		generate(node->assn->name);
-		printf("%d",node->assn->num);
+		setAddr(symtab,tptr,dx,root−>assn−>name);
+		gen(lit,0,num);
 		break;
 	}
 	case KCdelf:  
@@ -128,20 +127,19 @@ void generate(ASTNode node)
 		ListItr itr = newListItr(stmts, 0);
 		while ( hasNext(itr) )  {
 			printf(" , ");
-			dumpAST((ASTNode)nextItem(itr));
-//			printf("\n ");
+			generate((ASTNode)nextItem(itr));
 		}
 		destroyListItr(&itr);
 		break;		
 	}
 	case KFunctionDef:
 	{
-		generate(symtab,root->program->block)
+		generate(symtab,root->functiondef->compstat)
 		break;
 	}
 	case KMainDef:
 	{
-		g e n e r a t e ( symtab , r o o t −>program−>b l o c k ) ;
+		generate (symtab , root−>maindef−>compstat) ;
 		break;
 	}
 	case KCompStat:
@@ -162,69 +160,53 @@ void generate(ASTNode node)
 	}
 	case KStatif:
 	{
-		setaddr(symtab,root)
-		generate(node->loop->relation);
-		generate(node->loop->stat);
+		long cx1 = cx , cx2 ;
+ 		generate ( symtab , root−>loop−>relation ) ;
+ 		cx2 = cx ;
+		gen (jpc ,0 ,0) ;
+ 		generate ( symtab , root−>loop−>stat ) ;
+ 		gen (jmp , 0 , cx1) ;
+		code [cx2] . a = cx ;
 		break;
 	}
 	case KWlop:
 	{
 		long cx1 = cx , cx2 ;
- 		g e n e r a t e ( symtab , r o o t −>wstmt−>cond ) ;
+ 		generate ( symtab , root−>loop−>relation ) ;
  		cx2 = cx ;
-		gen ( jpc , 0 , 0 ) ;
- 		g e n e r a t e ( symtab , r o o t −>wstmt−>stmt ) ;
- 		gen ( jmp , 0 , cx1 ) ;
-		code [ cx2 ] . a = cx ;
+		gen (jpc ,0 ,0) ;
+ 		generate ( symtab , root−>loop−>stat ) ;
+ 		gen (jmp , 0 , cx1) ;
+		code [cx2] . a = cx ;
 		break;
 	}
 	case KFunctioncall:
 	{
-		
+		gen(cal,0,cx);
 		break;
 	}
 	case KRelation:
 	{
-		g e n e r a t e ( symtab , r o o t −>exp−>k i d s [ 0 ] ) ;
-		 g e n e r a t e ( symtab , r o o t −>exp−>k i d s [ 1 ] ) ;
-		switch ( r o o t −>exp−>op ) {
-345
-case OP_DEQL:
-346
-347
-break ;
-case OP_GTR:
-348
-349
-case OP_LSS :
-case OP_GEQ:
-case OP_LEQ:
-gen ( opr , 0 , 1 3 ) ;
-break ;
-case OP_NEQ:
-356
-357
-gen ( opr , 0 , 1 1 ) ;
-break ;
-354
-355
-gen ( opr , 0 , 1 0 ) ;
-break ;
-352
-353
-gen ( opr , 0 , 1 2 ) ;
-break ;
-350
-351
-gen ( opr , 0 , 8 ) ;
-gen ( opr , 0 , 9 ) ;
-break ;
-default :
-p r i n t f ( ” r e l o p ␣ e r r o r \n” ) ;
+		Genarate(node->exp->kids[0]);
+		Generate(node->exp->kids[1]);
+		switch ( roor->exp->op ) {
+			case EQ :
+				gen(opr,0,8); break;
+			case NE:
+				gen(opr,0,9); break;
+			case LT:
+				gen(opr,0,10); break;
+			case BE:
+				gen(opr,0,11); break;	
+			case GT:
+				gen(opr,0,12); break;
+			case LE:
+				gen(opr,0,13); break;
+			default :
+				printf("relop error\n");
+		}
 		break;
 	}
 	default:
-		printf("Unhandled ASTNode kind!\n");
-	}
-   }
+		printf("unvalid node\n");
 }
