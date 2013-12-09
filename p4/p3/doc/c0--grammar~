@@ -1,0 +1,39 @@
+/* e表示空 */
+Program →  Program Decls | e 
+
+Decls → Vdecl | Cdecl | FunctionDef 
+
+Vdecl → int ident {, ident} ;
+
+Cdecl → const int ident = number {, ident = number} ;
+
+FunctionDef → void ident () CompoundStatment
+
+Stat → Assign | Condition | Wlop | CompoundStatment | Vdecl | Cdecl | FunctionCall
+
+FunctionCall → ident ();
+
+CompoundStatment → '{' {Stat} '}'
+
+Wlop → while ( Relation )  Stat 
+
+Condition → if ( Relation ) Stat [else Stat]
+
+Assign → ident = Expr ;
+
+Relation → Expr Relopr Expr
+
+Relopr → >|<|==|!=|>=|<=
+
+Expr → [Prefix] Term {Lopr Term}
+
+Term → Factor {Hopr Factor}
+
+Factor → ident | number | ( Expr )
+
+Prefix → +|-
+
+Lopr → +|-
+
+Hopr → *|/
+

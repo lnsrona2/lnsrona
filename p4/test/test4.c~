@@ -1,0 +1,24 @@
+/*函数调用*/
+
+int x,y,z;
+void func3()
+{
+ z=x+y;
+}
+void func2()
+{
+ func3(); 
+}
+void func1()
+{
+ func2(); 
+}
+
+void main()
+{
+  x = 3;
+  y = 76;
+  func1();
+}
+
+

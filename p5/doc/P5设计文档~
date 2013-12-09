@@ -1,0 +1,61 @@
+AST设计文档
+
+
+AST的构造主要可以分成以下几个步骤：
+修改P4,包括.lex和.y,在.y中加上语法制导的翻译，使之成为AST的文法。
+修改common.h，增加AST的节点和函数，使之能支持C0语言。
+针对common.h声明的函数，在ast.c中写出对应的实现。
+此外，还有一些细节上的修改，比如增加op.h中的运算符，使之能完全支持c0语言。
+
+AST文法;
+AST的文法在P4的基础上加上了语法制导的翻译，主要是在文法符号下增加了该节点的创建函数，P4的文法基本上没有改变,只有一个细节的修改把
+Cdecl		:constsym intsym ident ASGN number Cdelf ';'
+		;
+改成了
+Cdecl		:constsym intsym Assn Cdelf ';'
+		;
+Assn		: ident ASGN number
+		;		
+以方便写语法制导的翻译。
+具体的文法在c0ast.y中。
+
+AST结构（common.h）
+在common.h中，增加了
+KVdecl,
+KVdelf,
+KCdecl,
+KAssn,
+KCdelf,
+KFunctionDef,
+KMainDef,
+KCompStat,
+KStatf,
+KStatif,
+KWlop,
+KFunctioncall,
+KRelation,
+这些不同的类型，他们分别对应到c0ast.y中的文法符号，此外还增加了一些结构体一支持这些类型。common.h的最后一部分给出了针对不同类型节点的创建和删除的声明，以及AST书的创建和删除函数。
+
+
+AST的实现代码ast.c
+
+ast.c中针对每种类型分别给出了创建和和删除函数，每中类型的函数都差不多，此外还有一个比较重要的dump函数，它用来书窗户相应的源码以检测AST的对错。它也是给每种节点类型给出一个相应的输出。在ast.c中我定义了一个变量i，用来记录每个语句的缩进是多少，是程序看起来比较直观。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

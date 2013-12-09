@@ -1,0 +1,19 @@
+/* 函数嵌套调用*/
+var n;
+procedure fooA;
+	procedure fooB;
+		begin
+			n := n-2;
+			if (n > 0) then 
+				call fooA;
+		end;
+	begin
+		n := n - 1;
+		if (n > 0) then 
+			call fooB;
+	end;
+
+begin
+	n := 2;
+	call fooA;
+end.

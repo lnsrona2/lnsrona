@@ -1,0 +1,6 @@
+var a;
+begin
+	if a<2 
+	then	a:=2
+	procedure;
+end.

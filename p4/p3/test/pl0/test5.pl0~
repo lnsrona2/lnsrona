@@ -1,0 +1,9 @@
+/*支持十六进制与八进制数*/
+
+const dec = 16;
+const hex = 0x10;
+const oct = 020;
+/*const idec = 08; //非法的八进制数*/
+
+bedin
+end.

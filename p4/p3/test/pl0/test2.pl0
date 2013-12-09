@@ -1,0 +1,12 @@
+/* 过程嵌套 */
+
+procedure sort;
+	procedure compare;
+		begin
+		end;
+	begin
+		call compare;
+	end;
+
+begin
+end.

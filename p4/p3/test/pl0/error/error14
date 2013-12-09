@@ -1,0 +1,3 @@
+begin
+	call 7;
+end.

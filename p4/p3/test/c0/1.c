@@ -1,0 +1,17 @@
+/*递归调用*/
+int n,f;
+
+void factorial(){
+	if(n==1)	f=1;
+	else{
+		f=f*n;
+		n=n-1;
+		factorial();
+	}
+}
+
+void main(){
+	n=3;
+	f=1;
+	factorial();
+}

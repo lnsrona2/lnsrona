@@ -1,0 +1,37 @@
+1. Files
+-----------------------------------------------------------------
+README		this file
+Makefile	a makefile to build the example
+run.sh		a shell script to run compiler with the specified input
+***********************************************
+include		directory to store header files
+  |--common.h   include common declarations and definitions for 		compilers
+  |--util.h     include utility declarations and definitions, e.g. 			list
+  |--errcfg.h   include error types and their corresponding error 			messages
+  |--op.h   	include operator constants and their corresponding 			literals
+config		directory to store grammar files
+  |--c0.lex, c0.y
+                grammar files of c0 language
+src		directory to store source files 
+  |--symtab.c   source file providing functions of symbolic table
+  |--list.c     source file providing functions of list, list iterator
+  |--error.c    source file providing functions of error message managment
+  |--ast.c      source file providing functions of abstract syntax 			tree
+test		directory to store test files
+  |--expr.in	a simple expr program
+  |--asgn.in	a simple asgn program
+  |--asgn_err.in	an invalid asgn program
+
+bin		directory to store executable files
+
+-----------------------------------------------------------------
+
+2. Building expr/asgn parsers
+   $ make 
+
+3. Run a parser to parse a program.
+   $ ./run.sh c0ast 1.in
+   It is the same as the commandline "bin/c0 <test/1.in".
+
+========
+Created on Oct 9, 2013

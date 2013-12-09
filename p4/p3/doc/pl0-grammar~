@@ -1,0 +1,51 @@
+这是PL/0所具体实现的语法，与文档中唯一不同的是Block的定义，具体实现中常量声明，变量声明，与过程声明的相互顺序并不严格要求，并且常量与变量声明可以多次出现。这是合理的做法。
+
+该文法是LL的(对ProcDecl修正后)。
+
+表述中
+Px -> {X} 等价于
+Px -> Px X | ε
+
+
+Program
+→ Block .
+
+Block
+→ {Declaration} Stmt
+
+Declaration
+→ ConstDecl | VarDecl | ProcDecl
+
+ConstDecl
+→ const ConstDef {, ConstDef} ;
+
+ConstDef
+→ ident = number
+
+VarDecl
+→ var ident {, ident} ;
+
+ProcDecl (这个文法为Pl0.c里的实现，但如此定义会使文法产生二义性,程序中采用用最长匹配的规则来避免二义)
+→ procedure ident ; Block ; {procedure ident ; Block ;}
+
+ProcDecl (*这个为非二义的ProcDecl定义)
+→ procedure ident ; Block ;
+
+Stmt
+→ ident := Exp | call ident | begin Stmt {; Stmt} end |
+if Cond then Stmt | while Cond do Stmt | ε
+
+Cond
+→ odd Exp | Exp RelOp Exp
+
+RelOp
+→ = | <> | < | > | <= | >=
+
+Exp
+→ [+ | − ] Term {+ Term | − Term}
+
+Term
+→ Factor {∗ Factor | / Factor}
+
+Factor
+→ ident | number | ( Exp )

@@ -1,0 +1,14 @@
+/*同名变量局部优先*/
+
+var n;
+
+procedure foo;
+	var n;
+	begin
+		n:=1;
+	end;
+
+bedin
+	n:=0;
+	call foo;
+end.

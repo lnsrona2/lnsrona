@@ -1,0 +1,4 @@
+var a;
+begin
+	a:=6*(2+1));
+end.
