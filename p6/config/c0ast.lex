@@ -5,8 +5,9 @@
 
 %{
 #include "c0ast.tab.h"
-#include <stdio.h>
 #include "common.h"
+#include "string.h"
+#include "stdlib.h"
 /* handle locations */
 int yycolumn = 1;
 
@@ -15,6 +16,7 @@ int yycolumn = 1;
     yycolumn += yyleng;
 %}
 
+%option noyywrap
 %option yylineno
 
 octal		0[0-7]+	
@@ -46,7 +48,7 @@ comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
 			return(number);
 		}
 {ident} 	{ 
-			yylval.name = malloc(yyleng+1);
+			yylval.name = (char*)malloc(yyleng+1);
 			yylval.name[yyleng] = '\0';
 			strncpy(yylval.name,yytext,yyleng);
 			return(ident);

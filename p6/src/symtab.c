@@ -2,16 +2,17 @@
  * Functions of Symbolic Table
  * Author: Yu Zhang (yuzhang@ustc.edu.cn)
  */
+#include "common.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <common.h>
+
 
 /**
  * Creates a symbolic table
  */
 Table
-newTable()    //建立新的函数符号表
+newTable()
 {
 	Table new;
 	NEW0(new);
@@ -19,7 +20,7 @@ newTable()    //建立新的函数符号表
 }
 
 static void
-destroyBucket(Entry *list)   //删除符号表中的节点
+destroyBucket(Entry *list)
 {
 	Entry node = *list, temp;
 	while ( node != NULL ) {
@@ -34,7 +35,7 @@ destroyBucket(Entry *list)   //删除符号表中的节点
  * Destroys the specified table
  */
 void
-destroyTable(Table *tab)  //释放整个符号表
+destroyTable(Table *tab)
 {
 	int i=0;
 	Entry *bucket = (*tab)->buckets, *bucket_end = (*tab)->buckets+256;
@@ -48,7 +49,7 @@ destroyTable(Table *tab)  //释放整个符号表
 
 // Look up the symbolic table to get the symbol with specified name
 Symbol
-lookup(Table ptab, const char *name)  //查询符号表
+lookup(Table ptab, const char *name)
 {
 	Entry pent;
 	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
@@ -60,7 +61,7 @@ lookup(Table ptab, const char *name)  //查询符号表
 
 // Get value of the specified name from the symbolic table
 float
-getVal(Table ptab, const char *name)  //查找name对应的val属性。若不存在，构建节点name，val设置为0
+getVal(Table ptab, const char *name)
 {
 	Entry pent;
 	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
@@ -78,7 +79,7 @@ getVal(Table ptab, const char *name)  //查找name对应的val属性。若不存
 }
 
 Symbol
-getSym(Table ptab, const char *name)  //从符号表中查找name对应的sym属性，若不存在，构建节点name
+getSym(Table ptab, const char *name)
 {
 	Entry pent;
 	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
@@ -96,7 +97,7 @@ getSym(Table ptab, const char *name)  //从符号表中查找name对应的sym属
 
 // Set value of the specified name into the symbolic table
 Symbol
-setVal(Table ptab, const char *name, float val)    //将符号表中name对应的val修改为输入值
+setVal(Table ptab, const char *name, float val)
 {
 	Entry pent;
 	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);

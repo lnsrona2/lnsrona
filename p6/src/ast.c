@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "common.h"
 
-int i = 0;      //记录缩进
+int i = 0;
 
 char *opname[]={
 #undef opxx
@@ -17,7 +17,7 @@ char *opname[]={
 };
 
 ASTNode 
-newNumber(float value)    //建立新节点，kind为数
+newNumber(float value)
 {
 	ASTNode new;
 	NEW0(new);
@@ -26,7 +26,7 @@ newNumber(float value)    //建立新节点，kind为数
 	return new;
 }
 
-ASTNode                //建立新节点，kind为id
+ASTNode
 newName(Table ptab, char *name)
 {
 	ASTNode new;
@@ -36,7 +36,7 @@ newName(Table ptab, char *name)
 	return new;
 }
 
-ASTNode                          //建立新节点，kind为括号
+ASTNode
 newParenExp(ASTNode exp)
 {
 	ASTNode new;
@@ -288,8 +288,8 @@ ASTNode newRelation(int relop,ASTNode lkid,ASTNode rkid)
 
 void destroyExp(Exp *pnode)
 {
-	if (*pnode == NULL) return;
 	Exp node = *pnode;
+	if (*pnode == NULL) return;
 	destroyAST(&node->kids[0]);
 	destroyAST(&node->kids[1]);
 	free(node);
@@ -299,8 +299,8 @@ void destroyExp(Exp *pnode)
 void
 destroyRelation(Relation *relat)
 {
-	if (*relat == NULL) return;
 	Relation node = *relat;
+	if (*relat == NULL) return;
 	destroyAST(&node->kid[0]);
 	destroyAST(&node->kid[1]);
 	free(node);
@@ -309,8 +309,8 @@ destroyRelation(Relation *relat)
 
 void	destroyProgram(Program *prog)
 {
-	if (*prog == NULL) return;
 	Program node=*prog;
+	if (*prog == NULL) return;
 	destroyAST(&node->block);
 	destroyAST(&node->maindef);
 	free(node);
@@ -319,8 +319,8 @@ void	destroyProgram(Program *prog)
 
 void destroyBlock(Block *pnode)
 {
-	if (*pnode == NULL) return;
 	Block node = *pnode;
+	if (*pnode == NULL) return;
 	destroyList(&node->stmts, destroyAST);
 	free(node);
 	*pnode = NULL;
@@ -328,8 +328,8 @@ void destroyBlock(Block *pnode)
 
 void	destroyLoop(Loop *pnode)
 {
-	if (*pnode == NULL) return;
 	Loop node = *pnode;
+	if (*pnode == NULL) return;
 	destroyAST(&node->relation);
 	destroyAST(&node->stat);
 	free(node);
@@ -338,8 +338,8 @@ void	destroyLoop(Loop *pnode)
 
 void	destroyCompStat(CompStat *pnode)
 {
-	if (*pnode == NULL) return;
 	CompStat node = *pnode;
+	if (*pnode == NULL) return;
 	destroyAST(&node->statf);
 	free(node);
 	*pnode = NULL;
@@ -347,8 +347,8 @@ void	destroyCompStat(CompStat *pnode)
 
 void	destroyCdecl(Cdecl *pnode)
 {
-	if (*pnode == NULL) return;
 	Cdecl node = *pnode;
+	if (*pnode == NULL) return;
 	destroyAST(&node->cdelf);
 	free(node);
 	*pnode = NULL;
@@ -356,8 +356,8 @@ void	destroyCdecl(Cdecl *pnode)
 
 void	destroyVdecl(Vdecl *pnode)
 {
-	if (*pnode == NULL) return;
 	Vdecl node = *pnode;
+	if (*pnode == NULL) return;
 	destroyAST(&node->vdelf);
 	free(node);
 	*pnode = NULL;
@@ -372,8 +372,8 @@ ASTTree newAST()
 
 void destroyAST(ASTNode *pnode)
 {
-	if (*pnode == NULL) return;
 	ASTNode node = *pnode;
+	if (*pnode == NULL) return;
 	int kind = node->kind;
 	
 	switch (kind) {

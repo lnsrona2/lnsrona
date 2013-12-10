@@ -11,12 +11,13 @@
 enum {
 #define opxx(a, b) OP_##a,
 #include "op.h"
+#undef opxx
 	OPLAST
 };
 
 //extern char **opname;
 
-// symbolic table ------------------------------这里构建一张表，存储类型为symbol
+// symbolic table
 typedef struct symbol {
 	char	*name;	// name of the symbol
 	bool	isInitial;	// whether it is initialized	
@@ -24,7 +25,7 @@ typedef struct symbol {
 	float	val;	// value of the symbol
 } *Symbol;
 
-typedef struct entry {    //symbol结构类型的链表
+typedef struct entry {
 	struct symbol sym;
 	struct entry *next;
 } *Entry;
@@ -48,16 +49,18 @@ void 	destroyTable();
 enum {
 #define errxx(a, b) a,
 #include "errcfg.h"
+#undef errxx
 	LASTERR
 };
 
-// An error/warning message ----------------------------- 这里定义错误判断的类型
-typedef struct errmsg {
-	bool	isWarn;
-	int 	type;
-	char 	*msg;
-	int	line;
-	int	column;
+// An error/warning message
+
+typedef struct errmsg{
+	bool isWarn;
+	int type;
+	char* msg;
+	int line;
+	int column;
 } *Errmsg;
 
 // Error factory
@@ -151,11 +154,11 @@ typedef struct astnode{
 	enum {
 		KValue = 0x200,		// numerial value:
 		KName,			// name, such as variable name
-		KInfixExp,		// infix expression 中缀表达式
-		KAssignExp,		// assignment expression 赋值表达式
-		KParenExp,		// parentheses expression 括号表达式
+		KInfixExp,		// infix expression
+		KAssignExp,		// assignment expression
+		KParenExp,		// parentheses expression
 		KProgram,		
-		KBlock,			// block 块
+		KBlock,			// block
 		KVdecl,
 		KVdelf,
 		KCdecl,
@@ -178,7 +181,7 @@ typedef struct astnode{
 					// KAssignExp,
 					// KParenExp
 		Program	program;	
-		Block block;			// block 块
+		Block block;			// block
 		Vdecl vdecl;
 		Cdecl cdeclar; 
 			//"cdecl" is a common world represent C style calling convention, suggest aother name here

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "C0.h"
 
 long base(long b, long l)
@@ -104,6 +105,7 @@ void interpret()
 
 int main()
 {	
+	FILE* infile = NULL;
 	printf("please input source program file name: ");
 	scanf("%s",infilename);
 	printf("\n");

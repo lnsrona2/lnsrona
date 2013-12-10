@@ -5,9 +5,11 @@
 #include "common.h"
 #include "C0.h"
 #include <string.h>
+#include <stdio.h>
 
 Table symtab = NULL; //Strong defineation
 ASTTree ast = NULL;
+FILE* outfile = NULL;
 
 int main(int argc, char *argv[])
 {
