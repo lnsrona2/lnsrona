@@ -11,6 +11,27 @@
 /**
  * Creates a symbolic table
  */
+void enter(Table *table,const char *name,short type,short lev){		// enter object into table
+    tx=tx+1;
+    strcpy(table[tx].name,name);
+    table[tx].type=type;
+    switch(type){
+	case 0:
+	    if(num>amax){
+		error(31);
+		num = 0;
+	    }
+	    table[tx].val=num;
+	    break;
+	case 1:
+	    table[tx].level=lev;table[tx].addr=dx; dx=dx+1;
+	    break;
+	case 2:
+	    table[tx].level=lev;
+	    break;
+    }
+}
+
 Table
 newTable()    //建立新的函数符号表
 {
@@ -60,7 +81,7 @@ lookup(Table ptab, const char *name)  //查询符号表
 }
 
 // Get value of the specified name from the symbolic table
-long
+float
 getVal(Table ptab, const char *name)  //查找name对应的val属性。若不存在，构建节点name，val设置为0
 {
 	Entry pent;

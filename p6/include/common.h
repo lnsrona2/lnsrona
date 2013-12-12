@@ -5,27 +5,29 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 #include "util.h"
+//#include "C0.h"
 
 // operator kinds
 // You could add more kinds of error messages into op.h 
 enum {
 #define opxx(a, b) OP_##a,
 #include "op.h"
-#undef opxx
 	OPLAST
 };
 
 //extern char **opname;
 
-// symbolic table
+// symbolic table ------------------------------这里构建一张表，存储类型为symbol
 typedef struct symbol {
 	char	*name;	// name of the symbol
 	bool	isInitial;	// whether it is initialized	
 	short	type;	// type of the symbol
 	float	val;	// value of the symbol
+	short	level;
+	long 	addr;
 } *Symbol;
 
-typedef struct entry {
+typedef struct entry {    //symbol结构类型的链表
 	struct symbol sym;
 	struct entry *next;
 } *Entry;
@@ -38,6 +40,7 @@ typedef struct table {
 
 // Function declarations corresponding to symbolic table
 Table 	newTable();
+void enter(Table *table,const char *name,short type,short lev);
 Symbol 	lookup(Table ptab, const char *name);
 Symbol 	getSym(Table ptab, const char *name);
 float 	getVal(Table ptab, const char *name);
@@ -49,18 +52,16 @@ void 	destroyTable();
 enum {
 #define errxx(a, b) a,
 #include "errcfg.h"
-#undef errxx
 	LASTERR
 };
 
-// An error/warning message
-
-typedef struct errmsg{
-	bool isWarn;
-	int type;
-	char* msg;
-	int line;
-	int column;
+// An error/warning message ----------------------------- 这里定义错误判断的类型
+typedef struct errmsg {
+	bool	isWarn;
+	int 	type;
+	char 	*msg;
+	int	line;
+	int	column;
 } *Errmsg;
 
 // Error factory
@@ -79,7 +80,7 @@ void	dumpWarnings	(ErrFactory errfactory);
 void	destroyErrFactory(ErrFactory *errfact);
 
 // abstract syntax tree
-// Structure for tracking locations, same as YYLTYPE in y.tab.h--------------------------------------
+// Structure for tracking locations, same as YYLTYPE in y.tab.h----------------------------------------
 
 typedef struct location {
 	int first_line;
@@ -154,11 +155,11 @@ typedef struct astnode{
 	enum {
 		KValue = 0x200,		// numerial value:
 		KName,			// name, such as variable name
-		KInfixExp,		// infix expression
-		KAssignExp,		// assignment expression
-		KParenExp,		// parentheses expression
+		KInfixExp,		// infix expression 中缀表达式
+		KAssignExp,		// assignment expression 赋值表达式
+		KParenExp,		// parentheses expression 括号表达式
 		KProgram,		
-		KBlock,			// block
+		KBlock,			// block 块
 		KVdecl,
 		KVdelf,
 		KCdecl,
@@ -181,11 +182,9 @@ typedef struct astnode{
 					// KAssignExp,
 					// KParenExp
 		Program	program;	
-		Block block;			// block
+		Block block;			// block 块
 		Vdecl vdecl;
-		Cdecl cdeclar; 
-			//"cdecl" is a common world represent C style calling convention, suggest aother name here
-			//name in "cdecl" caused build break in MSVC 12(VS 2013)
+		Cdecl cdecl;
 		Assn assn;
 		FunctionDef functiondef;
 		MainDef maindef;
@@ -233,7 +232,8 @@ ASTNode newRelation(int relop,ASTNode lkid,ASTNode rkid);
 void	destroyRelation(Relation *prelation);
 ASTTree newAST();
 void	destroyAST(ASTNode *pnode);
-void 	dumpAST(ASTNode node);
+//void 	dumpAST(ASTNode node);
 Loc	setLoc(ASTNode node, Loc loc);
+
 
 #endif // !def(_COMMON_H_)

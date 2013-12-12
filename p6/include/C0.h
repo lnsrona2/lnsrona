@@ -1,6 +1,4 @@
-#ifndef _C0_H_
-#define _C0_H_
-//#include <stdio.h>
+#include <stdio.h>
 
 #define norw       7             // no. of reserved words
 //#define norw       11             // no. of reserved words
@@ -99,24 +97,14 @@ struct{
     long addr;
 }table[txmax+1];
 
-char infilename[80]; 
-char outfilename[80]; //added by Yupeng
-//FILE* infile; 
-//FILE* outfile; //added by Yupeng
+char infilename[80];
+FILE* infile;
 
 // the following variables for block
 long dx;		// data allocation index
-long lev;		// current depth of block nesting
+short lev;		// current depth of block nesting
 long tx;		// current table index
 
 // the following array space for interpreter
 #define stacksize 50000
 long s[stacksize];	// datastore
-
-// Entrence for parsing
-int yyparse();
-
-// Entrence for code generation
-void generate(ASTNode);
-
-#endif //if! _C0_H_
