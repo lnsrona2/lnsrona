@@ -5,19 +5,29 @@
 #include "C0.h"
 
 void gen(enum fct x, long y, long z){
-	if(cx>cxmax){
+    if(cx>cxmax){
 	printf("program too long\n");
 	exit(1);
+    }
+    code[cx].f=x; code[cx].l=y; code[cx].a=z;
+    cx=cx+1;
+}
+
+void interpret()
+{
+	FILE *fp;
+	if((fp = fopen("interpret","wb"))==NULL)
+		printf("file cannot open\n");
+	long i;
+	for(i=0;i<cx;i++)
+	{
+		fwrite(&code[i],sizeof(instruction),1,fp);
+		printf("%10ld%5s%3ld%5ld\n", i, mnemonic[code[i].f], code[i].l, code[i].a);
 	}
-	code[cx].f=x; code[cx].l=y; code[cx].a=z;
-	cx=cx+1;
+	fclose(fp);	
 }
 
-void Print(instruction *code){
-	
-}
-
-void generate(ASTNode node)
+void generate(Table symtab,ASTNode node)
 {
 	if(node != NULL)
 	{
@@ -26,23 +36,19 @@ void generate(ASTNode node)
 		{
 			case KValue:
 			{
-				gen (lit,0,node->sym->val) ;
+				gen (lit,0,node->sym->val);
 				break;
 			}
 			case KName:
 			{
-//				int lev;
-//				int val=getval(node->sym->name);
-//				long addr=getAddr(node->sym->name,&lev);
+				symbol sym=lookup(symtab,node->sym->name);
 				switch(node->sym->type){
 					case 0:
 						gen(lit,0,node->sym->val); break;
 					case 1:
-						gen(lod,abs(lev),dx);
+						gen(lod,lev-(sym->level),sym->addr);
 						break;
 					case 2:
-						printf("use functionname in exp\n");
-						exit(-1);
 						break;
 				}
 				break;
@@ -72,9 +78,9 @@ void generate(ASTNode node)
 			}
 			case KAssignExp:
 			{
+				symbol sym=lookup(symtab,(node->exp->kids[0])->sym->name);
 				generate(node->exp->kids[1]);
-				generate(node->exp->kids[0]);
-				gen(sto,0,dx);
+				gen(sto,lev-(sym->level),sym->addr);
 				break; 
 			}
 			case KProgram:  
@@ -89,14 +95,13 @@ void generate(ASTNode node)
 				ListItr itr = newListItr(stmts, 0);
 				while ( hasNext(itr) )  {
 					generate((ASTNode)nextItem(itr));
-					printf("\n  ");
 				}
 				destroyListItr(&itr);
 				break;		
 			}
 			case KVdecl:  
 			{
-				generate(node->vdecl->name);
+				getSym(symtab,node->vdecl->name,1);
 				dx++;
 				generate(node->vdecl->vdelf);
 				break;
@@ -113,15 +118,16 @@ void generate(ASTNode node)
 			}
 			case KCdecl:  
 			{
-				generate(node->cdeclar->assn);
-				dx++;
-				generate(node->cdeclar->cdelf);
+				generate(node->cdecl->assn);
+				generate(node->cdecl->cdelf);
 				break;
 			}
 			case KAssn:
 			{
+				getSym(symtab,node->assn->name,0);
+				dx++;
+				setVal(symtab,node->assn->name,node->assn->num);
 				generate(node->assn->name);
-				gen(lit,0,num);
 				break;
 			}
 			case KCdelf:  
@@ -136,6 +142,8 @@ void generate(ASTNode node)
 			}
 			case KFunctionDef:
 			{
+				getVal(symtab,node->assn->name);
+				dx++;
 				generate(node->functiondef->compstat);
 				break;
 			}
@@ -162,13 +170,12 @@ void generate(ASTNode node)
 			}
 			case KStatif:
 			{
-				long cx1=cx,cx2;
+				long cx1=cx;
 				generate(node->loop->relation);
 				cx2=cx;
 				gen(jpc,0,0);
 				generate(node->loop->stat);
-				gen(jmp,0,cx1);
-				code[cx2].a=cx;
+				code[cx1].a=cx;
 				break;
 			}
 			case KWlop:
@@ -184,11 +191,11 @@ void generate(ASTNode node)
 			}
 			case KFunctioncall:
 			{
-				gen(cal,0,cx);
+				symbol sym=lookup(symtab,node->functioncall->name);
+				gen(cal,lev-(sym->level),addr);
 				break;
 			}
 			case KRelation:
-			{
 				generate(node->exp->kids[0]);
 				generate(node->exp->kids[1]);
 				switch ( node->exp->op ) {

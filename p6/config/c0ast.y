@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <common.h>
-extern Table symtab;
-extern ASTTree ast;
+
+Table symtab;
+ASTTree ast;
 %}
 %union{
 	int ival;
@@ -37,8 +38,8 @@ extern ASTTree ast;
 goal		:Program
 		{
 			debug("goal ::= Program \n");
-			ast->root = $$;
-		}
+	    		ast->root = $$;
+	  	}
 		;
 Program		:Block MainDef
 		{
@@ -56,7 +57,7 @@ Block		:
 		{
 			debug("Block ::= Block Decls \n");
 			addLast($1->block->stmts, $2);
-			$$ = $1;
+	    		$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		;
@@ -90,7 +91,7 @@ Vdelf		:Vdelf ',' ident
 		{
 			debug("Vdelf ::= Vdelf , ident \n");
 			addLast($1->block->stmts, newName(symtab,$3));
-			$$ = $1;
+	    		$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		|
@@ -116,8 +117,8 @@ Assn		: ident ASGN number
 Cdelf		:Cdelf ',' Assn
 		{
 			debug("Cdelf ::= Cdelf , Assn \n");
-			addLast($1->block->stmts,$3);
-			$$ = $1;
+		  	addLast($1->block->stmts,$3);
+		  	$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		|
@@ -207,85 +208,106 @@ Relation	:Exp GT Exp
 		{
 			debug("Relation ::= Exp GT Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		|Exp LT Exp
 		{
 			debug("Relation ::= Exp LT Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		|Exp EQ Exp
 		{
 			debug("Relation ::= Exp EQ Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		|Exp NE Exp
 		{
 			debug("Relation ::= Exp NQ Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		|Exp LE Exp
 		{
 			debug("Relation ::= Exp LE Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		|Exp BE Exp
 		{
 			debug("Relation ::= Exp BE Exp \n");
 			$$=newRelation($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
+		  	setLoc($$,(Loc)&(@$));
 		}
 		;
 Exp     	: number
-		{
-			debug("Exp ::= number\n");
-			$$ = newNumber($1);
-			setLoc($$, (Loc)&(@$));
-		}
+	  	{
+			    debug("Exp ::= number\n");
+			    $$ = newNumber($1);
+			    setLoc($$, (Loc)&(@$));
+		  }
 		| ident
-		{
-			debug("Exp ::= ident\n");
-			$$ = newName(symtab, $1); 
-			setLoc($$, (Loc)&(@$));
-		}
+		  {
+			    debug("Exp ::= ident\n");
+			    $$ = newName(symtab, $1); 
+			    setLoc($$, (Loc)&(@$));
+		  }
 		| Exp PLUS Exp
-		{
-			debug("Exp ::= Exp PLUS Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
+		  {
+			    debug("Exp ::= Exp PLUS Exp\n");
+			    $$ = newInfixExp($2, $1, $3); 
+			    setLoc($$, (Loc)&(@$));
+		  }
 		| Exp MINUS Exp
-		{
-			debug("Exp ::= Exp MINUS Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
+		  {
+			    debug("Exp ::= Exp MINUS Exp\n");
+			    $$ = newInfixExp($2, $1, $3); 
+			    setLoc($$, (Loc)&(@$));
+		  }
 		| Exp MULT Exp
-		{
-			debug("Exp ::= Exp MULT Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
+		  {
+			    debug("Exp ::= Exp MULT Exp\n");
+			    $$ = newInfixExp($2, $1, $3); 
+			    setLoc($$, (Loc)&(@$));
+		  }
 		| Exp DIV Exp
-		{
-			debug("Exp ::= Exp DIV Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| '(' Exp ')'
-		{
-			debug("Exp ::= ( Exp )\n");
-			$$ = newParenExp($2);
-			setLoc($$, (Loc)&(@$));
-		}
+		  {
+			    debug("Exp ::= Exp DIV Exp\n");
+			    $$ = newInfixExp($2, $1, $3); 
+			    setLoc($$, (Loc)&(@$));
+		  }
+        	| '(' Exp ')'
+	 	{
+		    	debug("Exp ::= ( Exp )\n");
+		    	$$ = newParenExp($2);
+	    		setLoc($$, (Loc)&(@$));
+	  	}
 
 %%
-
 yyerror(char *message)
 {
 	printf("%s\n",message);
+}
+
+
+int main(int argc, char *argv[])
+{
+//	dx=3;
+//	gen(jmp,0,0);
+	symtab = newTable();
+	ast = newAST();
+
+	printf("Parsing ...\n");
+	yyparse();
+	printf("\n\nDump the program from the generated AST:\n");
+	generate(ast->root);
+	printf("begin to write to file\n");
+	interpret();
+	destroyAST(&ast->root);
+	printf("\n\nFinished destroying AST.\n");
+	destroyTable(&symtab);
+	printf("\n\nFinished destroying symbolic table.\n");
+	//intepret();
+	return(0);
 }
