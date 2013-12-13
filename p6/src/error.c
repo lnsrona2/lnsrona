@@ -126,8 +126,8 @@ dumpWarnings(ErrFactory errfactory)
 void
 destroyErrFactory(ErrFactory *errfact)
 {
-	destroyList(&(*errfact)->errors, &destroyErrmsg);
-	destroyList(&(*errfact)->warnings, &destroyErrmsg);
+	destroyList(&(*errfact)->errors,(void (*)(void*)) &destroyErrmsg);
+	destroyList(&(*errfact)->warnings,(void(*)(void*)) &destroyErrmsg);
 	free(*errfact);
 	*errfact = NULL;
 }

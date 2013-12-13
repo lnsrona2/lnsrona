@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 
 	// Section of code generate and output to file
 	// Added by Yupeng Zhang
-	generate(ast->root); 
+	generate(symtab,ast->root); 
 	
 	fwrite(&cx, sizeof(long), 1, outfile);
 	fwrite(code, sizeof(instruction), cx, outfile);

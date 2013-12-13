@@ -1,6 +1,7 @@
 #ifndef _C0_H_
 #define _C0_H_
 //#include <stdio.h>
+#include "common.h"
 
 #define norw       7             // no. of reserved words
 //#define norw       11             // no. of reserved words
@@ -117,6 +118,6 @@ long s[stacksize];	// datastore
 int yyparse();
 
 // Entrence for code generation
-void generate(TABLE,ASTNode);
+void generate(Table, ASTNode);
 
 #endif //if! _C0_H_
