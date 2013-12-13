@@ -17,7 +17,7 @@ void Print(instruction *code){
 	
 }
 
-void generate(Table symtab, ASTNode node)
+void generate(SymbolTable symtab, ASTNode node)
 {
 	if (node != NULL)
 	{
@@ -31,7 +31,7 @@ void generate(Table symtab, ASTNode node)
 		}
 		case KName:
 		{
-					  Symbol s = lookup(symtab, node->sym->name);
+					  Symbol s = lookupSymbol(symtab, node->sym->name);
 					  switch (node->sym->type){
 					  case 0:
 						  gen(lit, 0, (int) node->sym->val); break;
@@ -68,7 +68,7 @@ void generate(Table symtab, ASTNode node)
 		}
 		case KAssignExp:
 		{
-						   Symbol s = lookup(symtab, (node->exp->kids[0])->sym->name);
+						   Symbol s = lookupSymbol(symtab, (node->exp->kids[0])->sym->name);
 						   generate(symtab, node->exp->kids[1]);
 						   gen(sto, s->level, s->addr);
 						   break;
@@ -91,7 +91,9 @@ void generate(Table symtab, ASTNode node)
 		}
 		case KVdecl:
 		{
-					   newSym(symtab, node->vdecl->name, 1, lev);
+					   Symbol var = createSymbol(symtab, node->vdecl->name);
+					   var->type = 1;
+					   var->level = lev;
 					   dx++;
 					   generate(symtab, node->vdecl->vdelf);
 					   break;
@@ -114,7 +116,9 @@ void generate(Table symtab, ASTNode node)
 		}
 		case KAssn:
 		{
-					  newSym(symtab, node->assn->name, 0, lev);
+					  Symbol var = createSymbol(symtab, node->vdecl->name);
+					  var->type = 0;
+					  var->level = lev;
 					  dx++;
 					  generate(symtab, node->assn->name);
 					  break;
@@ -132,7 +136,9 @@ void generate(Table symtab, ASTNode node)
 		case KFunctionDef:
 		{
 							 lev++;
-							 newSym(symtab, node->assn->name, 2, lev);
+							 Symbol var = createSymbol(symtab, node->assn->name);
+							 var->type = 2;
+							 var->level = lev;
 							 dx++;
 							 generate(symtab, node->functiondef->compstat);
 							 lev--;
@@ -184,7 +190,7 @@ void generate(Table symtab, ASTNode node)
 		}
 		case KFunctioncall:
 		{
-							  Symbol s = lookup(symtab, node->functioncall->name); // This is wrong... name is an astnode but not a string!!!...
+							  Symbol s = lookupSymbol(symtab, node->functioncall->name); // This is wrong... name is an astnode but not a string!!!...
 							  gen(cal, 2, s->addr);
 							  break;
 		}

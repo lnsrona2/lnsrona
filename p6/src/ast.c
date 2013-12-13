@@ -5,14 +5,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "common.h"
+#include "ast.h"
 
 int i = 0;
 
 char *opname[]={
 #undef opxx
 #define opxx(a, b) b,
-#include "op.h"
+#include "opcfg.h"
 	"Undefined Op"
 };
 
@@ -27,12 +27,12 @@ newNumber(float value)
 }
 
 ASTNode
-newName(Table ptab, char *name)
+newName(SymbolTable ptab, char *name)
 {
 	ASTNode new;
 	NEW0(new);
 	new->kind = KName;
-	new->sym = getSym(ptab, name);
+	new->sym = createSymbol(ptab, name);
 	return new;
 }
 
@@ -321,7 +321,7 @@ void destroyBlock(Block *pnode)
 {
 	Block node = *pnode;
 	if (*pnode == NULL) return;
-	destroyList(&node->stmts, destroyAST);
+	destroyList(&node->stmts, (void(*)(void**)) destroyAST);
 	free(node);
 	*pnode = NULL;
 }

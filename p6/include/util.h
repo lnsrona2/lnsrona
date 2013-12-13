@@ -6,11 +6,17 @@
 
 #ifndef _UTIL_H_
 #define _UTIL_H_
+
+#include <stdbool.h>
+
+#ifndef NEW
 #define NEW(p) ((p) = malloc(sizeof *(p)))
+#endif
+
+#ifndef NEW0
 #define NEW0(p) memset(NEW(p), 0, sizeof *(p))
-#define bool	char
-#define TRUE	1
-#define FALSE	0
+#endif
+
 #ifdef DEBUG
 #define debug(a) printf("%s", a)
 #else
@@ -23,7 +29,7 @@ typedef struct lnode{
 	void 	*prev;	// pointer to the previous node
 } *Lnode;
 
-typedef struct {
+typedef struct list{
 	int 	size;	// number of nodes
 	Lnode 	first;	// pointer to the first node
 	Lnode 	last;	// pointer to the last node
@@ -42,13 +48,13 @@ bool	listcontains	(List list, void *item);
 int	listsize	(List list);
 bool	listaddItem	(List list, void *item);
 bool	listremoveItem	(List list, void *item);
-void 	listclear	(List list, void (*destroyItem)(void*));
+void 	listclear	(List list, void (*destroyItem)(void**));
 Lnode	listnode	(List list, int index);
 void	*listget	(List list, int index);
 void	*listset	(List list, int index, void *item);
 void	listadd	(List list, int index, void *item);
 void	*listremove	(List list, int index);
-void 	destroyList	(List *list, void (*destroyItem)(void*));
+void 	destroyList	(List *list, void (*destroyItem)(void**));
 
 // List Iterator
 typedef struct {

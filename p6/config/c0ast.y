@@ -4,6 +4,10 @@
 #include <common.h>
 extern Table symtab;
 extern ASTTree ast;
+
+extern int yylex();
+int yyerror(char *message);
+
 %}
 %union{
 	int ival;
@@ -285,7 +289,8 @@ Exp     	: number
 
 %%
 
-yyerror(char *message)
+int yyerror(char *message)
 {
 	printf("%s\n",message);
+	return 0;
 }

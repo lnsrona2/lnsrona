@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-Table symtab = NULL; //Strong defineation
+SymbolTable symtab = NULL; //Strong defineation
 ASTTree ast = NULL;
 FILE* outfile = NULL;
 

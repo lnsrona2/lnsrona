@@ -1,21 +1,22 @@
 /*
- * Functions of Symbolic Table
- * Author: Yu Zhang (yuzhang@ustc.edu.cn)
- */
-#include "common.h"
+* Functions of Symbolic Table (Stack)
+* Author: Yu Zhang (yuzhang@ustc.edu.cn) , Yupeng Zhang (ypzhange@mail.ustc.edu.cn)
+*/
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
-
+#include <malloc.h>
+#include "symtab.h"
+#include "util.h"
 
 /**
- * Creates a symbolic table
- */
-Table
+* Creates a symbolic table
+*/
+SymbolTable
 newTable()
 {
-	Table new;
+	SymbolTable new;
 	NEW0(new);
+	new->top = 1;
 	return new;
 }
 
@@ -23,23 +24,23 @@ static void
 destroyBucket(Entry *list)
 {
 	Entry node = *list, temp;
-	while ( node != NULL ) {
-		temp = node->next;
-		free(node);
-		node = temp;
+	while (node != NULL) {
+		temp = node;
+		node = temp->next;
+		free(temp);
 	}
 	*list = NULL;
 }
 
 /**
- * Destroys the specified table
- */
+* Destroys the specified table
+*/
 void
-destroyTable(Table *tab)
+destroyTable(SymbolTable *tab)
 {
-	int i=0;
-	Entry *bucket = (*tab)->buckets, *bucket_end = (*tab)->buckets+256;
-	while (bucket < bucket_end ) {
+	int i = 0;
+	Entry *bucket = (*tab)->buckets, *bucket_end = (*tab)->buckets + 256;
+	while (bucket < bucket_end) {
 		destroyBucket(bucket);
 		bucket++;
 	}
@@ -47,118 +48,110 @@ destroyTable(Table *tab)
 	*tab = NULL;
 }
 
-// former "entry", rename it because the name "entry" is not good
-Symbol newSym(Table ptab, const char *name, short type, short lev){                // force create a new entry inside the symbol table
-	//tx = tx + 1;
-	//strcpy(table[tx].name, name);
-	//table[tx].type = type;
-	//switch (type){
-	//case 0:
-	//	if (num>amax){
-	//		error(31);
-	//		num = 0;
-	//	}
-	//	table[tx].val = num;
-	//	break;
-	//case 1:
-	//	table[tx].level = lev; table[tx].addr = dx; dx = dx + 1;
-	//	break;
-	//case 2:
-	//	table[tx].level = lev;
-	//	break;
-	//}
+Symbol
+checkSym(SymbolTable ptab, const char *name)
+{
+	Entry pent;
+	unsigned hashkey = (unsigned long) name[0] & (HASHSIZE - 1);
+	int lim = ptab->base[ptab->top - 1];
+	//	printf("CheckSymBase:%d\n",lim);
+	for (pent = ptab->buckets[hashkey]; (pent != NULL) && ((pent->id)>lim); pent = pent->next)
+	if (strcmp(name, pent->sym.name) == 0)
+	{
+		printf("Re-Define Detail: '%s' (%ld)\n", pent->sym.name, pent->id);
+		return &pent->sym;
+	}
+	return NULL;
+}
 
-	// IMPORTANT:
-	// Hi, my darling, you totally misunderstood the structure and usage of this symbol table.
-	// This symbol is a HASH Table.
-	// The symbol table inside PL0 project is a stack, but this one is not.
-	// As the conclusion, your implemeamentation of the "entry" method is totally wrong...
 
+Symbol
+lookupSymbol(SymbolTable ptab, const char *name)
+{
+	//	printf("look for ID : '%s'\n",name);
+	Entry pent;
+	unsigned hashkey = (unsigned long) name[0] & (HASHSIZE - 1);
+	for (pent = ptab->buckets[hashkey]; pent != NULL; pent = pent->next)
+	{
+		//		printf("looked ID : '%s' id =%ld ",pent->sym.name,pent->sym.id);
+		if (strcmp(name, pent->sym.name) == 0)
+			//		{
+			//			printf(", match!\n");
+			return &pent->sym;
+		//		}
+		//		else printf(", but not match\n");
+
+	}
+	//	printf("Never match.Lookup failed.\n");
+	return NULL;
+}
+
+Symbol
+checkSymbol(SymbolTable ptab, const char *name)
+{
+	Entry pent;
+	unsigned hashkey = (unsigned long) name[0] & (HASHSIZE - 1);
+	int lim = ptab->base[ptab->top - 1];
+	//	printf("CheckSymBase:%d\n",lim);
+	for (pent = ptab->buckets[hashkey]; (pent != NULL) && ((pent->id)>lim); pent = pent->next)
+	if (strcmp(name, pent->sym.name) == 0)
+	{
+		printf("Re-Defination Detail: '%s' (%ld)\n", pent->sym.name, pent->id);
+		return &pent->sym;
+	}
+	return NULL;
+}
+
+
+Symbol
+createSymbol(SymbolTable ptab, const char *name)
+{
 	Entry pent;
 	unsigned hashkey = (unsigned long) name[0] & (HASHSIZE - 1);
 	NEW0(pent);
 	pent->sym.name = (char *) name;
-	pent->sym.val = 0;
-	pent->sym.isInitial = FALSE;
-	pent->sym.level = lev;
-	// There is no dx anymore...
+	//	pent->sym.val = 0;
+	pent->sym.isInitial = false;
 	pent->next = ptab->buckets[hashkey];
+	pent->id = ++(ptab->base[ptab->top]);
+	pent->sym.level = ptab->top - 1;
 	ptab->buckets[hashkey] = pent;
+	Fakentry sp;
+	NEW0(sp);
+	sp->enode = pent;
+	sp->next = ptab->index;
+	ptab->index = sp;
 	return &pent->sym;
 }
 
-// Look up the symbolic table to get the symbol with specified name
-Symbol
-lookup(Table ptab, const char *name)
+void
+PushTable(SymbolTable ptab)
 {
-	Entry pent;
-	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
-	for (pent = ptab->buckets[hashkey]; pent!=NULL; pent = pent->next)
-		if ( strcmp(name, pent->sym.name) == 0 ) 
-			return &pent->sym;
-	return NULL;
+	//	printf("PushTable\n");
+	ptab->top++;
+	ptab->base[ptab->top] = ptab->base[ptab->top - 1];
 }
 
-// Get value of the specified name from the symbolic table
-float
-getVal(Table ptab, const char *name)
+void
+PopTable(SymbolTable ptab)
 {
+	//	printf("PopTable\n");
+	Fakentry sp = ptab->index;
 	Entry pent;
-	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
-	for (pent = ptab->buckets[hashkey]; pent!=NULL; pent = pent->next)
-		if ( strcmp(name, pent->sym.name) == 0 ) 
-			return pent->sym.val;
-	NEW0(pent);
-	pent->sym.name = (char *)name;
-	pent->sym.val = 0;
-	printf("Warn: %s(%d) was not initialized before, set it 0 as default\n",
-		(char *)name, hashkey);
-	pent->next = ptab->buckets[hashkey];
-	ptab->buckets[hashkey] = pent;
-	return 0;
-}
-
-Symbol
-getSym(Table ptab, const char *name)
-{
-	Entry pent;
-	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
-	for (pent = ptab->buckets[hashkey]; pent!=NULL; pent = pent->next)
-		if ( strcmp(name, pent->sym.name) == 0 ) 
-			return &pent->sym;
-	NEW0(pent);
-	pent->sym.name = (char *)name;
-	pent->sym.val = 0;
-	pent->sym.isInitial = FALSE;
-	pent->next = ptab->buckets[hashkey];
-	ptab->buckets[hashkey] = pent;
-	return &pent->sym;
-}
-
-// Set value of the specified name into the symbolic table
-Symbol
-setVal(Table ptab, const char *name, float val)
-{
-	Entry pent;
-	unsigned hashkey = (unsigned long)name[0] & (HASHSIZE-1);
-	for (pent = ptab->buckets[hashkey]; pent!=NULL; pent = pent->next) {
-		if ( strcmp(name, pent->sym.name) == 0 ) {
-			pent->sym.val = val;
-#if DEBUG
-			printf("update %s(%d)  %f\n", 
-				(char *)name, hashkey, val);
-#endif
-			return &pent->sym;
-		}
+	unsigned hashkey;
+	int N, i;
+	i = ptab->base[ptab->top];
+	ptab->top--;
+	N = ptab->base[ptab->top];
+	while (i>N){
+		pent = sp->enode;
+		hashkey = (unsigned long) ((pent->sym.name)[0]) & (HASHSIZE - 1);
+		ptab->buckets[hashkey] = pent->next;
+		//		free(pent);
+		ptab->index = sp->next;
+		free(sp);
+		sp = ptab->index;
+		i--;
 	}
-	NEW0(pent);
-	pent->sym.name = (char *)name;
-	pent->sym.val = val;
-#if DEBUG
-	printf("create %s(%d) %f\n", (char *)name, 
-		hashkey, val);
-#endif
-	pent->next = ptab->buckets[hashkey];
-	ptab->buckets[hashkey] = pent;
-	return &pent->sym;
 }
+

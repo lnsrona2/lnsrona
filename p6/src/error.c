@@ -3,9 +3,9 @@
  * Author: Yu Zhang (yuzhang@ustc.edu.cn)
  */
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include "common.h"
+#include <malloc.h>
+#include "error.h"
 
 char *errmsgs[] = {
 #undef errxx
@@ -23,7 +23,7 @@ newError(ErrFactory errfactory, int type, int line, int col)
 {
 	Errmsg new;
 	NEW0(new);
-	new->isWarn = FALSE;
+	new->isWarn = false;
 	new->type = type;
 	new->msg = errmsgs[type];
 	new->line = line;	
@@ -41,7 +41,7 @@ newWarning(ErrFactory errfactory, int type, int line, int col)
 {
 	Errmsg new;
 	NEW0(new);
-	new->isWarn = TRUE;
+	new->isWarn = true;
 	new->type = type;
 	new->msg = errmsgs[type];
 	new->line = line;	
@@ -126,8 +126,8 @@ dumpWarnings(ErrFactory errfactory)
 void
 destroyErrFactory(ErrFactory *errfact)
 {
-	destroyList(&(*errfact)->errors,(void (*)(void*)) &destroyErrmsg);
-	destroyList(&(*errfact)->warnings,(void(*)(void*)) &destroyErrmsg);
+	destroyList(&(*errfact)->errors,(void (*)(void**)) &destroyErrmsg);
+	destroyList(&(*errfact)->warnings,(void(*)(void**)) &destroyErrmsg);
 	free(*errfact);
 	*errfact = NULL;
 }

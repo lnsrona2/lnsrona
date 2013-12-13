@@ -56,7 +56,16 @@
     <ClInclude Include="include\errcfg.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\op.h">
+    <ClInclude Include="include\symtab.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ast.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\opcfg.h">
       <Filter>Resource Files</Filter>
     </ClInclude>
   </ItemGroup>

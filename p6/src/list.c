@@ -233,7 +233,7 @@ bool
 listaddItem(List list, void * item)
 {
 	linkLast(list, item);
-	return TRUE;
+	return true;
 }
 
 /**
@@ -247,18 +247,18 @@ listremoveItem(List list, void *item)
 	while(node!=NULL) {
 		if (node->item == item) {
 			ListUnlink(list, node);
-			return TRUE;
+			return true;
 		}
 		node = node->next;
 	}
-	return FALSE;
+	return false;
 }
 
 /**
  * Removes all of the elements from the list
  */
 void
-listclear(List list, void(*destroyItem)(void*))
+listclear(List list, void(*destroyItem)(void**))
 {
 	Lnode node = list->first;
 	while (node != NULL) {
@@ -357,7 +357,7 @@ listremove(List list, int index)
  * Destroys the list
  */
 void
-destroyList(List *list, void(*destroyItem)(void*))
+destroyList(List *list, void(*destroyItem)(void**))
 {
 	listclear(*list, destroyItem);
 	free(*list);

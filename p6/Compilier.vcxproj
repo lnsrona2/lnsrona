@@ -87,10 +87,13 @@
     <ClCompile Include="src\symtab.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\ast.h" />
     <ClInclude Include="include\C0.h" />
     <ClInclude Include="include\common.h" />
     <ClInclude Include="include\errcfg.h" />
-    <ClInclude Include="include\op.h" />
+    <ClInclude Include="include\error.h" />
+    <ClInclude Include="include\opcfg.h" />
+    <ClInclude Include="include\symtab.h" />
     <ClInclude Include="include\util.h" />
     <ClInclude Include="src\c0ast.tab.h" />
   </ItemGroup>
