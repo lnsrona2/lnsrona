@@ -80,6 +80,8 @@ Symbol newSym(Table ptab, const char *name, short type, short lev){             
 	pent->sym.name = (char *) name;
 	pent->sym.val = 0;
 	pent->sym.isInitial = FALSE;
+	pent->sym.level = lev;
+	// There is no dx anymore...
 	pent->next = ptab->buckets[hashkey];
 	ptab->buckets[hashkey] = pent;
 	return &pent->sym;

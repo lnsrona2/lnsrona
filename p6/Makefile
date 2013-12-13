@@ -14,7 +14,7 @@ inter: $(SRC)/interpret.c
 	$(CC) -DDEBUG -o $(BIN)/inter $(SRC)/interpret.c -ll -lm
 
 $(SRC)/c0ast.tab.c : $(CONF)/c0ast.y
-	$(YACC) -b -o $(SRC)/c0ast.tab.c $(CONF)/c0ast.y
+	$(YACC) -o $(SRC)/c0ast.tab.c $(CONF)/c0ast.y
 
 $(SRC)/c0ast.lex.c : $(CONF)/c0ast.lex
 	$(LEX) -o$(SRC)/c0ast.lex.c $(CONF)/c0ast.lex
