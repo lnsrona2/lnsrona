@@ -42,13 +42,13 @@ bool	listcontains	(List list, void *item);
 int	listsize	(List list);
 bool	listaddItem	(List list, void *item);
 bool	listremoveItem	(List list, void *item);
-void 	listclear	(List list, void (*destroyItem)());
+void 	listclear	(List list, void (*destroyItem)(void*));
 Lnode	listnode	(List list, int index);
 void	*listget	(List list, int index);
 void	*listset	(List list, int index, void *item);
 void	listadd	(List list, int index, void *item);
 void	*listremove	(List list, int index);
-void 	destroyList	(List *list, void (*destroyItem)());
+void 	destroyList	(List *list, void (*destroyItem)(void*));
 
 // List Iterator
 typedef struct {

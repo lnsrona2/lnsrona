@@ -258,7 +258,7 @@ listremoveItem(List list, void *item)
  * Removes all of the elements from the list
  */
 void
-listclear(List list, void destroyItem())
+listclear(List list, void(*destroyItem)(void*))
 {
 	Lnode node = list->first;
 	while (node != NULL) {
@@ -357,7 +357,7 @@ listremove(List list, int index)
  * Destroys the list
  */
 void
-destroyList(List *list, void destroyItem())
+destroyList(List *list, void(*destroyItem)(void*))
 {
 	listclear(*list, destroyItem);
 	free(*list);

@@ -64,6 +64,7 @@
   <ItemGroup>
     <None Include="config\c0ast.lex" />
     <None Include="config\c0ast.y" />
+    <None Include="Makefile" />
     <None Include="Makefile.Windows.mak" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

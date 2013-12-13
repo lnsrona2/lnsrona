@@ -23,6 +23,8 @@ typedef struct symbol {
 	bool	isInitial;	// whether it is initialized	
 	short	type;	// type of the symbol
 	float	val;	// value of the symbol
+	short	level;	// level of the symbol
+	long	addr;	// address of the symbol
 } *Symbol;
 
 typedef struct entry {
@@ -39,6 +41,7 @@ typedef struct table {
 // Function declarations corresponding to symbolic table
 Table 	newTable();
 Symbol 	lookup(Table ptab, const char *name);
+Symbol 	newSym(Table ptab, const char *name, short type, short lev);
 Symbol 	getSym(Table ptab, const char *name);
 float 	getVal(Table ptab, const char *name);
 Symbol 	setVal(Table ptab, const char *name, float val);

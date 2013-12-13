@@ -47,6 +47,44 @@ destroyTable(Table *tab)
 	*tab = NULL;
 }
 
+// former "entry", rename it because the name "entry" is not good
+Symbol newSym(Table ptab, const char *name, short type, short lev){                // force create a new entry inside the symbol table
+	//tx = tx + 1;
+	//strcpy(table[tx].name, name);
+	//table[tx].type = type;
+	//switch (type){
+	//case 0:
+	//	if (num>amax){
+	//		error(31);
+	//		num = 0;
+	//	}
+	//	table[tx].val = num;
+	//	break;
+	//case 1:
+	//	table[tx].level = lev; table[tx].addr = dx; dx = dx + 1;
+	//	break;
+	//case 2:
+	//	table[tx].level = lev;
+	//	break;
+	//}
+
+	// IMPORTANT:
+	// Hi, my darling, you totally misunderstood the structure and usage of this symbol table.
+	// This symbol is a HASH Table.
+	// The symbol table inside PL0 project is a stack, but this one is not.
+	// As the conclusion, your implemeamentation of the "entry" method is totally wrong...
+
+	Entry pent;
+	unsigned hashkey = (unsigned long) name[0] & (HASHSIZE - 1);
+	NEW0(pent);
+	pent->sym.name = (char *) name;
+	pent->sym.val = 0;
+	pent->sym.isInitial = FALSE;
+	pent->next = ptab->buckets[hashkey];
+	ptab->buckets[hashkey] = pent;
+	return &pent->sym;
+}
+
 // Look up the symbolic table to get the symbol with specified name
 Symbol
 lookup(Table ptab, const char *name)

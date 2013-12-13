@@ -22,7 +22,7 @@ $(SRC)/c0ast.lex.c : $(CONF)/c0ast.lex
 # Generates a compiler for an assignment statement sequence language,
 # which constructs an abstract syntax tree for an input program.
 c0mid : $(SRC)/c0ast.lex.c $(SRC)/c0ast.tab.c
-	$(CC) -DDEBUG -o $(BIN)/c0mid $(SRC)/c0ast.lex.c $(SRC)/symtab.c $(SRC)/c0ast.tab.c $(UTILSRC) -ll -lm
+	$(CC) -DDEBUG -o $(BIN)/c0mid $(SRC)/c0ast.lex.c $(SRC)/symtab.c $(SRC)/c0ast.tab.c $(SRC)/shell.c $(UTILSRC) -ll -lm
 
 clean:
 	rm -f *.BAK *.o core *~* *.a 

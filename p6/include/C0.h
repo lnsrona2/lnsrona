@@ -117,6 +117,6 @@ long s[stacksize];	// datastore
 int yyparse();
 
 // Entrence for code generation
-void generate(ASTNode);
+void generate(TABLE,ASTNode);
 
 #endif //if! _C0_H_
