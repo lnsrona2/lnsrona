@@ -1,29 +1,30 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "C0.h"
 
 long base(long b, long l)
 {
-    long b1;
+	long b1;
 	
-    b1=b;
-    while (l>0)	// find base l levels down
+	b1=b;
+	while (l>0)	// find base l levels down
 	{
 		b1=s[b1];
 		l=l-1;
-    }
-    return b1;
+	}
+	return b1;
 }
 
 void interpret()
 {
-    long p,b,t;		// program-, base-, topstack-registers
-    instruction i;	// instruction register
+	long p,b,t;		// program-, base-, topstack-registers
+	instruction i;	// instruction register
 	
-    printf("start C0\n");
-    t=0; b=1; p=0;
-    s[1]=0; s[2]=0; s[3]=0;
-    do
+	printf("start C0\n");
+	t=0; b=1; p=0;
+	s[1]=0; s[2]=0; s[3]=0;
+	do
 	{
 		i=code[p];
 		p=p+1;
@@ -98,30 +99,40 @@ void interpret()
 			t=t-1;
 			break;
 		}
-    }while(p!=0);
-    printf("end C0\n");
+	}while(p!=0);
+	printf("end C0\n");
 }
-
 
 int main()
 {	
-    printf("please input source program file name: ");
-    scanf("%s",infilename);
-    printf("\n");
-    if((infile=fopen(infilename,"rb"))==NULL)
+	FILE* infile = NULL;
+	printf("please input source program file name: ");
+	scanf("%s",infilename);
+	printf("\n");
+	if((infile=fopen(infilename,"rb"))==NULL)
 	{
 		printf("File %s can't be opened.\n", infilename);
 		exit(1);
-    }
-    long i=0;
-    while(!feof(infile))
-    {
-    	fread(&code[i],sizeof(instruction),1,infile);
-    	i++;
-    }
-    interpret();
-    fclose(infile);
-    return 1;
+	}
+	//long i=0;
+
+	long Length = 0;
+	// Read the length of this array ("blob")
+	fread(&Length, sizeof(long), 1, infile);
+	// allocate the space for save it.
+	//code = (instruction*) malloc(sizeof(instruction) *Length);
+	// Read the array
+	fread(code, sizeof(instruction), Length, infile);
+	fclose(infile);
+
+	//while(!feof(infile))
+	//{
+	//	fread(&code[i],sizeof(instruction),1,infile);
+	//	i++;
+	//}
+	interpret();
+	//fclose(infile);
+	return 1;
 }
 
 

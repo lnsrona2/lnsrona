@@ -87,7 +87,7 @@ linkBefore(List list, void *item, Lnode succ)
  *  Unlinks non-NULL node 
  */
 static void *
-unlink(List list, Lnode node)
+ListUnlink(List list, Lnode node)
 {
 	assert(node != NULL);
 	Lnode 	prev, next;
@@ -154,7 +154,7 @@ removeFirst(List list)
 		printf("The list is empty!\n");
 		exit(-1);
 	}
-	return unlink(list, first);
+	return ListUnlink(list, first);
 }
 
 /**
@@ -168,7 +168,7 @@ removeLast(List list)
 		printf("The list is empty!\n");
 		exit(-1);
 	}
-	return unlink(list, last);
+	return ListUnlink(list, last);
 }
 
 /**
@@ -246,7 +246,7 @@ listremoveItem(List list, void *item)
 	Lnode node = list->first;
 	while(node!=NULL) {
 		if (node->item == item) {
-			unlink(list, node);
+			ListUnlink(list, node);
 			return TRUE;
 		}
 		node = node->next;
@@ -350,7 +350,7 @@ listremove(List list, int index)
 		printf("Index %d is out of the bound!\n", index);
 		exit(-1);
 	}
-	return unlink(list, node);
+	return ListUnlink(list, node);
 }
 
 /**
