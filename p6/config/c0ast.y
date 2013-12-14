@@ -1,8 +1,8 @@
 %{
 #include <stdio.h>
 #include <math.h>
-#include <common.h>
-extern Table symtab;
+#include "common.h"
+extern SymbolTable symtab;
 extern ASTTree ast;
 
 extern int yylex();
@@ -33,7 +33,7 @@ int yyerror(char *message);
 %type <ival> number
 %type <ival> PLUS MINUS MULT DIV ASGN LT GT EQ LE NE BE
 %type <name> ident
-%type <node> goal Program Block Decls Vdecl Vdelf 
+%type <node> goal Program Decl Decls Vdecl Vdelf 
 %type <node> Cdecl Assn Cdelf FunctionDef MainDef CompStat Statf Stat 
 %type <node> Relation Exp
 
@@ -44,41 +44,42 @@ goal		:Program
 			ast->root = $$;
 		}
 		;
-Program		:Block MainDef
+Program		:Decls MainDef
 		{
-			debug("Program ::= Block MainDef \n");
+			debug("Program ::= Decls MainDef \n");
 			$$ = newProgram($1,$2);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
-Block		:
+Decls		:
 		{
-			debug("Block ::= \n");
+			debug("Decls ::= \n");
 			$$ = newBlock();
+			$$->kind = KDecls;
 		}
-		|Block Decls
+		|Decls Decl
 		{
-			debug("Block ::= Block Decls \n");
+			debug("Decls ::= Decls Decl \n");
 			addLast($1->block->stmts, $2);
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		;
-Decls		:Vdecl
+Decl		:Vdecl
 		{
-			debug("Decls ::= Vdecl \n");
+			debug("Decl ::= Vdecl \n");
 			$$ = $1;
 			//setLoc($$,(Loc)&(@$));
 		}
 		|Cdecl
 		{
-			debug("Decls ::= Cdecl \n");
+			debug("Decl ::= Cdecl \n");
 			$$ = $1;
 			//setLoc($$,(Loc)&(@$));
 		}
 		|FunctionDef
 		{
-			debug("Decls ::= FunctionDef \n");
+			debug("Decl ::= FunctionDef \n");
 			$$ = $1;
 			//setLoc($$,(Loc)&(@$));
 		}
@@ -86,7 +87,7 @@ Decls		:Vdecl
 Vdecl		:intsym ident Vdelf ';'	
 		{
 			debug("Vdecl ::= intsym ident Vdelf ;\n");
-			$$ = newVdecl(newName(symtab,$2),$3);
+			$$ = newVdecl($2,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
@@ -113,7 +114,7 @@ Cdecl		:constsym intsym Assn Cdelf ';'
 Assn		: ident ASGN number
 		{
 			debug("constdef ::= ident ASGN number \n");
-			$$ = newAssn(newName(symtab,$1),$3);
+			$$ = newAssn($1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
@@ -133,35 +134,35 @@ Cdelf		:Cdelf ',' Assn
 FunctionDef	:voidsym ident '(' ')'  CompStat
 		{
 			debug("FunctionDef ::= voidsym ident ()  CompStat \n");
-			$$ = newFunctionDef(newName(symtab,$2),$5);
+			$$ = newFunctionDef($2,$5);
 			setLoc($$,(Loc)&(@$));
 		} 
 		;
 MainDef		:voidsym mainsym '(' ')'  CompStat
 		{
 			debug("MainDef ::= voidsym mainsym () CompStat \n");
-			$$ = newMainDef($5);
+			$$ = newFunctionDef("main",$5);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
 CompStat	:'{'Statf'}'
 		{
 			debug("CompStat ::= { Statf } \n");
-			$$ = newCompStat($2);
+			$$ = $2;
 			setLoc($$,(Loc)&(@$));
 		}
 		;
 Statf		:Statf Stat
 		{
 			debug("Statf ::= Statf Stat \n");
-			addLast($1->block->stmts,$2);
+			addLast($1->compstat->stmts,$2);
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		|
 		{
 			debug("Statf ::= \n");
-			$$ = newStatf();
+			$$ = newCompStat();
 		}
 		;
 Stat		:ident ASGN Exp ';' 
@@ -173,7 +174,7 @@ Stat		:ident ASGN Exp ';'
 		|ifsym '(' Relation ')' Stat 
 		{
 			debug("stat ::= ifsym ( Relation ) Stat  \n");
-			$$=newStatif($3,$5);
+			$$=newIf($3,$5);
 			setLoc($$,(Loc)&(@$));
 		}
 		|whilesym '(' Relation ')'  Stat

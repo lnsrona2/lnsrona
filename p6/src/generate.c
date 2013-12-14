@@ -32,13 +32,15 @@ void generate(SymbolTable symtab, ASTNode node)
 		case KName:
 		{
 					  Symbol s = lookupSymbol(symtab, node->sym->name);
-					  switch (node->sym->type){
-					  case 0:
+					  int local = node->sym->level > 0 ? 0 : symtab->top;
+					  switch (node->sym->catalog){
+					  case SYMBOL_Constant:
 						  gen(lit, 0, (int) node->sym->val); break;
-					  case 1:
-						  gen(lod, s->level, s->addr);
+					  case SYMBOL_Variable:
+						  gen(lod, node->sym->level>0 ? symtab->top : 0, s->addr);
 						  break;
-					  case 2:
+					  default:
+						  printf("Invailiad reference of name ""%s""",s->name);
 						  break;
 					  }
 					  break;
@@ -52,25 +54,27 @@ void generate(SymbolTable symtab, ASTNode node)
 		{
 						  generate(symtab, node->exp->kids[0]);
 						  generate(symtab, node->exp->kids[1]);
-						  switch (node->exp->op){
-						  case OP_PLUS:
-							  gen(opr, 0, 2); break;
-						  case OP_MINUS:
-							  gen(opr, 0, 3); break;
-						  case OP_MULT:
-							  gen(opr, 0, 4); break;
-						  case OP_DIV:
-							  gen(opr, 0, 5); break;
-						  default:
-							  break;
-						  }
+						  gen(opr, 0, node->exp->op);
+						  //switch (node->exp->op){
+						  //case OP_PLUS:
+							 // gen(opr, 0, 2); break;
+						  //case OP_MINUS:
+							 // gen(opr, 0, 3); break;
+						  //case OP_MULT:
+							 // gen(opr, 0, 4); break;
+						  //case OP_DIV:
+							 // gen(opr, 0, 5); break;
+						  //default:
+							 // break;
+						  //}
 						  break;
 		}
 		case KAssignExp:
 		{
 						   Symbol s = lookupSymbol(symtab, (node->exp->kids[0])->sym->name);
+						   int local = node->sym->level > 0 ? 0 : symtab->top;
 						   generate(symtab, node->exp->kids[1]);
-						   gen(sto, s->level, s->addr);
+						   gen(sto, local, s->addr);
 						   break;
 		}
 		case KProgram:
@@ -79,20 +83,20 @@ void generate(SymbolTable symtab, ASTNode node)
 						 generate(symtab, node->program->maindef);
 						 break;
 		}
-		case KBlock:
-		{
-					   List stmts = node->block->stmts;
-					   ListItr itr = newListItr(stmts, 0);
-					   while (hasNext(itr))  {
-						   generate(symtab, (ASTNode) nextItem(itr));
-					   }
-					   destroyListItr(&itr);
-					   break;
-		}
+		//case KBlock:
+		//{
+		//			   List stmts = node->block->stmts;
+		//			   ListItr itr = newListItr(stmts, 0);
+		//			   while (hasNext(itr))  {
+		//				   generate(symtab, (ASTNode) nextItem(itr));
+		//			   }
+		//			   destroyListItr(&itr);
+		//			   break;
+		//}
 		case KVdecl:
 		{
 					   Symbol var = createSymbol(symtab, node->vdecl->name);
-					   var->type = 1;
+					   var->catalog = 1;
 					   var->level = lev;
 					   dx++;
 					   generate(symtab, node->vdecl->vdelf);
@@ -117,7 +121,7 @@ void generate(SymbolTable symtab, ASTNode node)
 		case KAssn:
 		{
 					  Symbol var = createSymbol(symtab, node->vdecl->name);
-					  var->type = 0;
+					  var->catalog = 0;
 					  var->level = lev;
 					  dx++;
 					  generate(symtab, node->assn->name);
@@ -137,7 +141,7 @@ void generate(SymbolTable symtab, ASTNode node)
 		{
 							 lev++;
 							 Symbol var = createSymbol(symtab, node->assn->name);
-							 var->type = 2;
+							 var->catalog = 2;
 							 var->level = lev;
 							 dx++;
 							 generate(symtab, node->functiondef->compstat);
@@ -147,17 +151,18 @@ void generate(SymbolTable symtab, ASTNode node)
 		case KMainDef:
 		{
 						 lev++;
-						 generate(symtab, node->maindef->compstat);
+						 generate(symtab, node->functiondef->compstat);
 						 lev--;
 						 break;
 		}
+		//case KCompStat:
+		//{
+		//				  generate(symtab, node->compstat->statf);
+		//				  break;
+		//}
 		case KCompStat:
 		{
-						  generate(symtab, node->compstat->statf);
-						  break;
-		}
-		case KStatf:
-		{
+					   int dx1 = dx;
 					   List stmts = node->block->stmts;
 					   ListItr itr = newListItr(stmts, 0);
 					   while (hasNext(itr))  {
@@ -165,16 +170,35 @@ void generate(SymbolTable symtab, ASTNode node)
 						   printf("\n ");
 					   }
 					   destroyListItr(&itr);
+					   if (dx != dx1){
+						   gen(Int, 0, dx1 - dx); // Reset the stack top 
+						   dx = dx1;
+					   }
 					   break;
 		}
-		case KStatif:
+		case KConditional:
 		{
-						long cx1 = cx , cx2;
-						generate(symtab, node->loop->relation);
-						cx2 = cx;
+						long cx1;
+						//		printf("if (");
+						generate(symtab, node->conditional->condition);
+						cx1 = cx;
 						gen(jpc, 0, 0);
-						generate(symtab, node->loop->stat);
-						code[cx1].a = cx;
+						//		printf(")\n");
+						generate(symtab, node->conditional->thenAction);
+						if (node->conditional->elseAction != NULL)
+						{
+							gen(jmp, 0, 0);
+							code[cx1].a = cx;
+							cx1 = cx - 1;
+							generate(symtab, node->conditional->elseAction);
+							code[cx1].a = cx;
+						}	code[cx1].a = cx;
+						//long cx1 = cx, cx2;
+						//generate(symtab, node->loop->relation);
+						//cx2 = cx;
+						//gen(jpc, 0, 0);
+						//generate(symtab, node->loop->stat);
+						//code[cx2].a = cx;
 						break;
 		}
 		case KWlop:

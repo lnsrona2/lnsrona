@@ -17,7 +17,7 @@ char *opname[]={
 };
 
 ASTNode 
-newNumber(float value)
+newNumber(int value)
 {
 	ASTNode new;
 	NEW0(new);
@@ -109,7 +109,7 @@ ASTNode newBlock()
 	return new;
 }
 
-ASTNode newVdecl(ASTNode name,ASTNode vdelf)
+ASTNode newVdecl(char* name,ASTNode vdelf)
 {
 	ASTNode new;
 	NEW0(new);
@@ -150,7 +150,7 @@ ASTNode newCdecl(ASTNode assn,ASTNode cdelf)
 	return new;	
 }
 
-ASTNode newAssn(ASTNode name,int num)
+ASTNode newAssn(char* name,int num)
 {
 	ASTNode new;
 	NEW0(new);
@@ -177,7 +177,7 @@ ASTNode newCdelf()
 	return new;
 }
 
-ASTNode newFunctionDef(ASTNode name,ASTNode compstat)
+ASTNode newFunctionDef(char* name,ASTNode compstat)
 {
 	ASTNode new;
 	NEW0(new);
@@ -191,37 +191,24 @@ ASTNode newFunctionDef(ASTNode name,ASTNode compstat)
 	return new;	
 }
 
-ASTNode newMainDef(ASTNode compstat)
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KMainDef;
-	MainDef newmain;
-	NEW0(newmain);
-	new->maindef = newmain;
+//ASTNode newMainDef(ASTNode compstat)
+//{
+//	ASTNode new;
+//	NEW0(new);
+//	new->kind = KMainDef;
+//	MainDef newmain;
+//	NEW0(newmain);
+//	new->maindef = newmain;
+//
+//	newmain->compstat = compstat;
+//	return new;	
+//}
 
-	newmain->compstat = compstat;
-	return new;	
-}
-
-ASTNode newCompStat(ASTNode statf)
+ASTNode newCompStat()
 {
 	ASTNode new;
 	NEW0(new);
 	new->kind = KCompStat;
-	CompStat newcomp;
-	NEW0(newcomp);
-	new->compstat = newcomp;
-
-	newcomp->statf = statf;
-	return new;	
-}
-
-ASTNode newStatf()
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KStatf;
 	Block newstatf;
 	NEW0(newstatf);
 	new->block = newstatf;
@@ -230,17 +217,21 @@ ASTNode newStatf()
 	return new;
 }
 
-ASTNode newStatif(ASTNode relation,ASTNode stat)
+void destroyCompStat()
+{}
+
+
+ASTNode newIf(ASTNode relation,ASTNode stat)
 {
 	ASTNode new;
 	NEW0(new);
-	new->kind = KStatif;
-	Loop newstatif;
-	NEW0(newstatif);
-	new->loop = newstatif;
+	new->kind = KConditional;
+	Conditional cond;
+	NEW0(cond);
+	new->conditional = cond;
 
-	newstatif->relation = relation;
-	newstatif->stat = stat;
+	cond->condition = relation;
+	cond->thenAction = stat;
 	return new;	
 }
 
@@ -249,7 +240,7 @@ ASTNode newWlop(ASTNode relation,ASTNode stat)
 	ASTNode new;
 	NEW0(new);
 	new->kind = KWlop;
-	Loop newwlop;
+	WhileLoop newwlop;
 	NEW0(newwlop);
 	new->loop = newwlop;
 
@@ -258,7 +249,7 @@ ASTNode newWlop(ASTNode relation,ASTNode stat)
 	return new;	
 }
 
-ASTNode newFunctioncall(ASTNode name)
+ASTNode newFunctioncall(char* name)
 {
 	ASTNode new;
 	NEW0(new);
@@ -326,21 +317,12 @@ void destroyBlock(Block *pnode)
 	*pnode = NULL;
 }
 
-void	destroyLoop(Loop *pnode)
+void	destroyLoop(WhileLoop *pnode)
 {
-	Loop node = *pnode;
+	WhileLoop node = *pnode;
 	if (*pnode == NULL) return;
 	destroyAST(&node->relation);
 	destroyAST(&node->stat);
-	free(node);
-	*pnode = NULL;
-}
-
-void	destroyCompStat(CompStat *pnode)
-{
-	CompStat node = *pnode;
-	if (*pnode == NULL) return;
-	destroyAST(&node->statf);
 	free(node);
 	*pnode = NULL;
 }
@@ -390,11 +372,11 @@ void destroyAST(ASTNode *pnode)
 	case KProgram:
 		destroyProgram(&node->program);
 		break;
-	case KBlock:
+	//case KBlock:
 	case KVdelf:
 	case KCdelf:
-	case KStatf:
-		destroyBlock(&node->block);
+	case KCompStat:
+		destroyBlock(&node->compstat);
 		break;
 	case KVdecl:
 		destroyVdecl(&node->vdecl);
@@ -406,13 +388,15 @@ void destroyAST(ASTNode *pnode)
 		destroyRelation(&node->relation);
 		break;
 	case KWlop:
-	case KStatif:
+	case KConditional:
 		destroyLoop(&node->loop);
 		break;
-	case KCompStat:
+	//case KCompStat:
 	case KFunctionDef:
+		destroyAST(&node->functiondef->compstat);
+		break;
 	case KMainDef:
-		destroyCompStat(&node->compstat);
+		destroyAST(&node->functiondef->compstat);
 		break;
 	default:
 		printf("Unhandled ASTNode kind!\n");
@@ -480,24 +464,24 @@ dumpAST(ASTNode node)
 		dumpAST(node->program->maindef);
 		break;
 	}
-	case KBlock:  
-	{
-		List stmts = node->block->stmts;
-		ListItr itr = newListItr(stmts, 0);
-		while ( hasNext(itr) )  {
-			dumpAST((ASTNode)nextItem(itr));
-			printf("\n  ");
-		}
-		destroyListItr(&itr);
-		break;		
-	}
+	//case KBlock:  
+	//{
+	//	List stmts = node->block->stmts;
+	//	ListItr itr = newListItr(stmts, 0);
+	//	while ( hasNext(itr) )  {
+	//		dumpAST((ASTNode)nextItem(itr));
+	//		printf("\n  ");
+	//	}
+	//	destroyListItr(&itr);
+	//	break;		
+	//}
 	case KVdecl:  
 	{
 		int j;
 		for(j=i;j>0;j--)
 			printf("\t");
 		printf("int ");
-		dumpAST(node->vdecl->name);
+		printf(node->vdecl->name);
 		dumpAST(node->vdecl->vdelf);
 		printf(";\n ");
 		break;
@@ -528,7 +512,7 @@ dumpAST(ASTNode node)
 	}
 	case KAssn:
 	{
-		dumpAST(node->assn->name);
+		printf(node->assn->name);
 		printf(" = ");
 		printf("%d",node->assn->num);
 		break;
@@ -548,7 +532,7 @@ dumpAST(ASTNode node)
 	case KFunctionDef:
 	{
 		printf("void ");
-		dumpAST(node->functiondef->name);
+		printf(node->functiondef->name);
 		printf("()\n"  );
 		i++;
 		dumpAST(node->functiondef->compstat);
@@ -561,25 +545,13 @@ dumpAST(ASTNode node)
 		printf(" main ");
 		printf("()\n");
 		i++;
-		dumpAST(node->maindef->compstat);
+		dumpAST(node->functiondef->compstat);
 		i--;
 		break;
 	}
 	case KCompStat:
 	{
-		int j;
-		for(j=i;j>1;j--)
-			printf("\t");
-		printf("{ \n");
-		dumpAST(node->compstat->statf);
-		for(j=i;j>1;j--)
-			printf("\t");
-		printf("}\n ");
-		break;
-	}
-	case KStatf:  
-	{
-		List stmts = node->block->stmts;
+		List stmts = node->compstat->stmts;
 		ListItr itr = newListItr(stmts, 0);
 		while ( hasNext(itr) )  {
 			dumpAST((ASTNode)nextItem(itr));
@@ -588,7 +560,7 @@ dumpAST(ASTNode node)
 		destroyListItr(&itr);
 		break;		
 	}
-	case KStatif:
+	case KConditional:
 	{
 		int j;
 		for(j=i;j>0;j--)
@@ -619,7 +591,7 @@ dumpAST(ASTNode node)
 		int j;
 		for(j=i;j>0;j--)
 			printf("\t");
-		dumpAST(node->functioncall->name);
+		printf(node->functioncall->name);
 		printf(" () ");
 		printf(" ; ");
 		printf("\n");

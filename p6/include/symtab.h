@@ -14,15 +14,26 @@
 
 #include <stdbool.h>
 
+enum SymbolCatalog
+{
+	SYMBOL_Constant,
+	SYMBOL_Variable,
+	SYMBOL_Functional,
+	SYMBOL_Type,
+	SYMBOL_Template,
+	SYMBOL_NameSpace,
+	None
+};
 // symbolic table
 typedef struct symbol {
 	char	*name;	// name of the symbol
 	bool	isInitial;	// whether it is initialized	
 	int		val;
-	int		type;
+	//int		type;
+	enum SymbolCatalog catalog; // changed from type 
+
 	//Type   type;	// type of the symbol
-	//enum object kind;
-	struct astnode	*initexp;	// value of the symbol
+	//struct astnode	*initexp;	// value of the symbol
 	int	addr;	// addr of the symbol
 	int	level;  // if is a local symbol
 	struct astnode	*declaration;	//Pointer to the declaration.

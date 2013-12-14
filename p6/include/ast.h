@@ -30,29 +30,31 @@ typedef struct{
 } *Relation;
 
 typedef struct{
-	struct astnode *name;
+	char *name;
 } *Functioncall;
 
 typedef struct{
 	struct astnode *relation;
 	struct astnode *stat;
-} *Loop;
+} *WhileLoop;
 
 typedef struct{
-	struct astnode *statf;
-} *CompStat;
+	struct astnode *condition;
+	struct astnode *thenAction;
+	struct astnode *elseAction;
+} *Conditional;
+
+//typedef struct{
+//	struct astnode *compstat;
+//} *MainDef;
 
 typedef struct{
-	struct astnode *compstat;
-} *MainDef;
-
-typedef struct{
-	struct astnode *name;
+	char *name;
 	struct astnode *compstat;
 } *FunctionDef;
 
 typedef struct{
-	struct astnode *name;
+	char *name;
 	int num;
 } *Assn;
 
@@ -62,7 +64,7 @@ typedef struct{
 } *Cdecl;
 
 typedef struct{
-	struct astnode *name;
+	char *name;
 	struct astnode *vdelf;
 } *Vdecl;
 
@@ -81,6 +83,7 @@ typedef struct astnode{
 		KAssignExp,		// assignment expression
 		KParenExp,		// parentheses expression
 		KProgram,
+		KDecls,
 		KBlock,			// block
 		KVdecl,
 		KVdelf,
@@ -90,14 +93,14 @@ typedef struct astnode{
 		KFunctionDef,
 		KMainDef,
 		KCompStat,
-		KStatf,
-		KStatif,
+		//KStatf,
+		KConditional,	//If statement
 		KWlop,
 		KFunctioncall,
 		KRelation,
 	} kind;	// kind of the AST node
 	union {		// information of various kinds of AST node 
-		float  val;		// KValue: numerial value
+		int  val;		// KValue: numerial value
 		Symbol sym;		// KName: symbols 
 		Exp   exp;		// KPrefixExp,
 		// KInfixExp,
@@ -111,9 +114,11 @@ typedef struct astnode{
 		//name in "cdecl" caused build break in MSVC 12(VS 2013)
 		Assn assn;
 		FunctionDef functiondef;
-		MainDef maindef;
-		CompStat compstat;
-		Loop loop;
+		//MainDef maindef;
+		Block compstat;
+		Block decls;
+		WhileLoop loop;
+		Conditional conditional;
 		Functioncall functioncall;
 		Relation relation;
 	};
@@ -125,7 +130,7 @@ typedef struct ASTtree {
 } *ASTTree;
 
 // functions for creating various kinds of ASTnodes
-ASTNode newNumber(float value);
+ASTNode newNumber(int value);
 ASTNode newName(SymbolTable ptab, char *name);
 ASTNode newPrefixExp(int op, ASTNode exp);
 ASTNode newParenExp(ASTNode exp);
@@ -136,27 +141,25 @@ ASTNode newProgram(ASTNode block, ASTNode maindef);
 void	destroyProgram(Program *prog);
 ASTNode newBlock();
 void	destroyBlock(Block *pblock);
-ASTNode newVdecl(ASTNode name, ASTNode vdelf);
+ASTNode newVdecl(char* name, ASTNode vdelf);
 void	destroyVdecl(Vdecl *pnode);
 ASTNode newVdelf();
 ASTNode newCdecl(ASTNode assn, ASTNode cdelf);
 void	destroyCdecl(Cdecl *pnode);
-ASTNode newAssn(ASTNode name, int num);
+ASTNode newAssn(char* name, int num);
 ASTNode newCdelf();
-ASTNode newFunctionDef(ASTNode name, ASTNode compstat);
-ASTNode newMainDef(ASTNode compstat);
-ASTNode newCompStat(ASTNode statf);
-void	destroyCompStat(CompStat *pmain);
-ASTNode newStatf();
-ASTNode newStatif(ASTNode relation, ASTNode stat);
+ASTNode newFunctionDef(char* name, ASTNode compstat);
+//ASTNode newMainDef(ASTNode compstat);
+ASTNode newCompStat();
+ASTNode newIf(ASTNode relation, ASTNode stat);
 ASTNode newWlop(ASTNode relation, ASTNode stat);
-void	destroyLoop(Loop *loop);
-ASTNode newFunctioncall(ASTNode name);
+void	destroyLoop(WhileLoop *loop);
+ASTNode newFunctioncall(char* name);
 ASTNode newRelation(int relop, ASTNode lkid, ASTNode rkid);
 void	destroyRelation(Relation *prelation);
 ASTTree newAST();
 void	destroyAST(ASTNode *pnode);
 void 	dumpAST(ASTNode node);
-Loc	setLoc(ASTNode node, Loc loc);
+Loc		setLoc(ASTNode node, Loc loc);
 
 #endif // !_AST_H
