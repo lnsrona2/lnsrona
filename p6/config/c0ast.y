@@ -91,53 +91,54 @@ Vdecl		:intsym VarList ';'
 			setLoc($$,(Loc)&(@$));
 		}
 		;
-VarList		:VarList ',' ident
+VarList		:VarList ',' ident InitExpr
 		{
 			debug("Vdelf ::= Vdelf , ident \n");
-			addLast($1->block->stmts, newName(symtab,$3));
+			addLast($1->block->stmts, newVariable($3,$4));
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
-		| ident
+		| ident InitExpr
 		{
 			debug("Vdelf ::= \n");
 			$$ = newVdelf();
 		}
 		;
 
-VarDef	: indent 
-		{}
-		| ident = exp
-		{}
+InitExpr	: ASGN NUMBER
+		{
+			$$ = $2;
+			setLoc($$, (Loc)&(@$));
+		}
+		| 
+		{
+			$$ = NULL;
+		}
 		;
 
-Cdecl		:constsym intsym Assn Cdelf ';'
+Cdecl		:constsym intsym ConstList ';'
 		{
 			debug("Cdecl ::= constsym intsym Assn Cdelf ;\n");
 			$$ = newCdecl($3,$4);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
-Assn		: ident ASGN number
+
+ConstList		:ConstList ',' ident InitExpr
 		{
-			debug("constdef ::= ident ASGN number \n");
-			$$ = newAssn($1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		;
-Cdelf		:Cdelf ',' Assn
-		{
+			ASTNode conDef = newConst($3,$4);
 			debug("Cdelf ::= Cdelf , Assn \n");
-			addLast($1->block->stmts,$3);
+			addLast($1->block->stmts,conDef);
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
-		|
+		| ident InitExpr
 		{
 			debug("Cdelf ::= \n");
-			$$ = newCdelf();
+			$$ = newConstant($1,$2);
 		}
 		;
+
 FunctionDef	:voidsym ident '(' ')'  CompStat
 		{
 			debug("FunctionDef ::= voidsym ident ()  CompStat \n");

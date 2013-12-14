@@ -59,14 +59,9 @@ typedef struct{
 } *Assn;
 
 typedef struct{
-	struct astnode *assn;
-	struct astnode *cdelf;
-} *Cdecl;
-
-typedef struct{
-	char *name;
-	struct astnode *vdelf;
-} *Vdecl;
+	int type;
+	List vars;
+} *VarDeclList;
 
 typedef struct{
 	struct astnode *block;
@@ -86,7 +81,6 @@ typedef struct astnode{
 		KDecls,
 		KBlock,			// block
 		KVdecl,
-		KVdelf,
 		KCdecl,
 		KAssn,
 		KCdelf,
@@ -107,14 +101,9 @@ typedef struct astnode{
 		// KAssignExp,
 		// KParenExp
 		Program	program;
-		Block block;			// block
-		Vdecl vdecl;
-		Cdecl cdeclar;
-		//"cdecl" is a common world represent C style calling convention, suggest aother name here
-		//name in "cdecl" caused build break in MSVC 12(VS 2013)
-		Assn assn;
+		//Block block;			// block
+		VarDeclList varlist;
 		FunctionDef functiondef;
-		//MainDef maindef;
 		Block compstat;
 		Block decls;
 		WhileLoop loop;
@@ -131,26 +120,35 @@ typedef struct ASTtree {
 } *ASTTree;
 
 // functions for creating various kinds of ASTnodes
+// Symbols and declarations
+ASTNode newVariable(const char* name, ASTNode initExpr);
+ASTNode newConstant(const char* name, ASTNode initExpr);
+ASTNode newFunction(const char* name, ASTNode body);
+void destroyVariable();
+void destroyFunction();
+
+ASTNode newVarDecl(int type);
+ASTNode newConstDecl(int type);
+void	destroyVarDecl(Vdecl *pnode);
+void	destroyConstDecl(Cdecl *pnode);
+
+// Expressions
 ASTNode newNumber(int value);
-//ASTNode newName(SymbolTable ptab, char *name);
 ASTNode newPrefixExp(int op, ASTNode exp);
 ASTNode newParenExp(ASTNode exp);
 ASTNode newInfixExp(int op, ASTNode left, ASTNode right);
 ASTNode newAssignment(int op, ASTNode left, ASTNode right);
 void	destroyExp(Exp *pexp);
+
 ASTNode newProgram(ASTNode block, ASTNode maindef);
 void	destroyProgram(Program *prog);
+
 ASTNode newBlock();
 void	destroyBlock(Block *pblock);
-ASTNode newVdecl(char* name, ASTNode vdelf);
-void	destroyVdecl(Vdecl *pnode);
-ASTNode newVdelf();
-ASTNode newCdecl(ASTNode assn, ASTNode cdelf);
-void	destroyCdecl(Cdecl *pnode);
-ASTNode newAssn(char* name, int num);
-ASTNode newCdelf();
-ASTNode newFunctionDef(char* name, ASTNode compstat);
-//ASTNode newMainDef(ASTNode compstat);
+
+
+
+//Statments
 ASTNode newCompStat();
 ASTNode newIf(ASTNode relation, ASTNode stat);
 ASTNode newWlop(ASTNode relation, ASTNode stat);
@@ -158,6 +156,7 @@ void	destroyLoop(WhileLoop *loop);
 ASTNode newFunctioncall(char* name);
 ASTNode newRelation(int relop, ASTNode lkid, ASTNode rkid);
 void	destroyRelation(Relation *prelation);
+
 ASTTree newAST();
 void	destroyAST(ASTNode *pnode);
 void 	dumpAST(ASTNode node);
