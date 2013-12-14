@@ -41,7 +41,7 @@ int yyerror(char *message);
 goal		:Program
 		{
 			debug("goal ::= Program \n");
-			ast->root = $$;
+			ast->root = $$;               
 		}
 		;
 Program		:Decls MainDef
@@ -84,26 +84,33 @@ Decl		:Vdecl
 			//setLoc($$,(Loc)&(@$));
 		}
 		;
-Vdecl		:intsym ident Vdelf ';'	
+Vdecl		:intsym VarList ';'	
 		{
 			debug("Vdecl ::= intsym ident Vdelf ;\n");
-			$$ = newVdecl($2,$3);
+			$$ = newVdecl($1,$2);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
-Vdelf		:Vdelf ',' ident
+VarList		:VarList ',' ident
 		{
 			debug("Vdelf ::= Vdelf , ident \n");
 			addLast($1->block->stmts, newName(symtab,$3));
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
-		|
+		| ident
 		{
 			debug("Vdelf ::= \n");
 			$$ = newVdelf();
 		}
 		;
+
+VarDef	: indent 
+		{}
+		| ident = exp
+		{}
+		;
+
 Cdecl		:constsym intsym Assn Cdelf ';'
 		{
 			debug("Cdecl ::= constsym intsym Assn Cdelf ;\n");
@@ -148,7 +155,8 @@ MainDef		:voidsym mainsym '(' ')'  CompStat
 CompStat	:'{'Statf'}'
 		{
 			debug("CompStat ::= { Statf } \n");
-			$$ = $2;
+			$$ = $2; 
+			popTable(ast->symTab);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
@@ -162,6 +170,7 @@ Statf		:Statf Stat
 		|
 		{
 			debug("Statf ::= \n");
+			pushTable(ast->symTab);
 			$$ = newCompStat();
 		}
 		;

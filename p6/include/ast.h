@@ -126,12 +126,13 @@ typedef struct astnode{
 } *ASTNode;
 
 typedef struct ASTtree {
-	struct astnode *root;
+	ASTNode root;
+	SymbolTable symTab;
 } *ASTTree;
 
 // functions for creating various kinds of ASTnodes
 ASTNode newNumber(int value);
-ASTNode newName(SymbolTable ptab, char *name);
+//ASTNode newName(SymbolTable ptab, char *name);
 ASTNode newPrefixExp(int op, ASTNode exp);
 ASTNode newParenExp(ASTNode exp);
 ASTNode newInfixExp(int op, ASTNode left, ASTNode right);

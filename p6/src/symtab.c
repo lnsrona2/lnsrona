@@ -125,7 +125,7 @@ createSymbol(SymbolTable ptab, const char *name)
 }
 
 void
-PushTable(SymbolTable ptab)
+pushTable(SymbolTable ptab)
 {
 	//	printf("PushTable\n");
 	ptab->top++;
@@ -133,7 +133,7 @@ PushTable(SymbolTable ptab)
 }
 
 void
-PopTable(SymbolTable ptab)
+popTable(SymbolTable ptab)
 {
 	//	printf("PopTable\n");
 	Fakentry sp = ptab->index;

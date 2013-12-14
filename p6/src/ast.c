@@ -349,6 +349,7 @@ ASTTree newAST()
 {
 	ASTTree new;
 	NEW0(new);
+	new->symTab = newTable();
 	return new;
 }
 
