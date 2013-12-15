@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "ast.h"
 
-int i = 0;
+int indent = 0;
 
 char *opname[]={
 #undef opxx
@@ -19,388 +19,410 @@ char *opname[]={
 ASTNode 
 newNumber(int value)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KValue;
-	new->val = value;
-	return new;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KNumber;
+	node->val = value;
+	return node;
 }
 
 ASTNode
-newName(SymbolTable ptab, char *name)
+newParenExpr(ASTNode exp)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KName;
-	new->sym = createSymbol(ptab, name);
-	return new;
-}
-
-ASTNode
-newParenExp(ASTNode exp)
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KParenExp;
-	Exp newexp;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KParenExpr;
+	Expr newexp;
 	NEW0(newexp);
 	newexp->op = -1;
-	newexp->kids[0] = exp;
-	new->exp = newexp;
-	return new;
+	newexp->oprands[0] = exp;
+	node->expr = newexp;
+	return node;
 }
 
 ASTNode
-newInfixExp(int op, ASTNode left, ASTNode right)
+newInfixExpr(int op, ASTNode left, ASTNode right)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KInfixExp;
-	Exp newexp;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KInfixExpr;
+	Expr newexp;
 	NEW0(newexp);
-	new->exp = newexp;
+	node->expr = newexp;
 
 	newexp->op = op;
-	newexp->kids[0] = left;
-	newexp->kids[1] = right;
-	return new;
+	newexp->oprands[0] = left;
+	newexp->oprands[1] = right;
+	return node;
 }
 
 ASTNode
-newAssignment(int op, ASTNode left, ASTNode right)
+newAssignExpr(int op, ASTNode left, ASTNode right)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KAssignExp;
-	Exp newexp;
+	ASTNode node;
+	Expr newexp;
+	NEW0(node);
+	node->kind = KAssignExpr;
 	NEW0(newexp);
 
 	newexp->op = op;
-	newexp->kids[0] = left;
-	newexp->kids[1] = right;
-	new->exp = newexp;
-	return new;
+	newexp->oprands[0] = left;
+	newexp->oprands[1] = right;
+	node->expr = newexp;
+	return node;
 }
 
-ASTNode newProgram(ASTNode block,ASTNode maindef)
+ASTNode
+newVarExpr(SymbolTable pTab, const char* name)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KProgram;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KVarExpr;
+	Symbol sym;
+	sym = lookupSymbol(pTab, name);
+	node->sym = sym;
+	if (sym == NULL)
+	{
+		printf("Error: can't find defination of %s",name);
+		//sym = createSymbol(pTab, name);
+	}
+	return node;
+}
+
+ASTNode newProgram()
+{
+	ASTNode node;
 	Program newprog;
+	NEW0(node);
+	node->kind = KProgram;
 	NEW0(newprog);
-	new->program = newprog;
+	node->program = newprog;
 
-	newprog->block = block;
-	newprog->maindef =  maindef;
-	return new;	
+	newprog->decls = newList();
+	return node;	
 }
 
-ASTNode newBlock()
+ASTNode newVarDeclStmt(Type type)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KBlock;
-	Block newbloc;
-	NEW0(newbloc);
-	new->block = newbloc;
-
-	newbloc->stmts = newList();
-	return new;
+	ASTNode node;
+	VarDeclStmt decl;
+	NEW0(node);
+	NEW0(decl);
+	node->kind = KVarDeclStmt;
+	node->vardeclstmt = decl;
+	decl->type = type;
+	decl->vars = newList();
+	return node;
 }
 
-ASTNode newVdecl(char* name,ASTNode vdelf)
+ASTNode newConstDeclStmt(Type type)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KVdecl;
-	Vdecl newvdec;
-	NEW0(newvdec);
-	new->vdecl = newvdec;
-
-	newvdec->name = name;
-	newvdec->vdelf =  vdelf;
-	return new;	
+	ASTNode node;
+	VarDeclStmt decl;
+	NEW0(node);
+	NEW0(decl);
+	node->kind = KConstDeclStmt;
+	node->vardeclstmt = decl;
+	decl->type = type;
+	decl->vars = newList();
+	return node;
 }
 
-ASTNode newVdelf()
+ASTNode newVariable(SymbolTable pTab, const char* name, ASTNode initExpr)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KVdelf;
-	Block newvdlf;
-	NEW0(newvdlf);
-	new->block = newvdlf;
-
-	newvdlf->stmts = newList();
-	return new;
+	ASTNode node;
+	Symbol sym = checkSymbol(pTab, name);
+	if (sym == NULL)
+	{
+		sym = createSymbol(pTab, name);
+		sym->catalog = SYMBOL_Variable;
+		sym->type = INT;
+		sym->initexpr = initExpr;
+	}
+	else
+	{
+		printf("Error: Re-defination of identifier %s", name);
+	}
+	NEW0(node);
+	node->kind = KVariable;
+	node->sym = sym;
+	return node;
 }
 
-ASTNode newCdecl(ASTNode assn,ASTNode cdelf)
+ASTNode newConstant(SymbolTable pTab, const char* name, ASTNode initExpr)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KCdecl;
-	Cdecl newcdel;
-	NEW0(newcdel);
-	new->cdeclar = newcdel;
-
-	newcdel->assn = assn;
-	newcdel->cdelf =  cdelf;
-	return new;	
+	ASTNode node;
+	Symbol sym = checkSymbol(pTab, name);
+	if (initExpr == NULL)
+	{
+		printf("Error: Constant must be initialized.");
+	}
+	if (sym == NULL)
+	{
+		sym = createSymbol(pTab, name);
+		sym->catalog = SYMBOL_Constant;
+		sym->type = INT;
+		sym->initexpr = initExpr;
+	}
+	else
+	{
+		printf("Error: Re-defination of identifier %s.", name);
+	}
+	NEW0(node);
+	node->kind = KConstant;
+	node->sym = sym;
+	return node;
 }
 
-ASTNode newAssn(char* name,int num)
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KAssn;
-	Assn newassn;
-	NEW0(newassn);
-	new->assn = newassn;
 
-	newassn->name = name;
-	newassn->num = num;
-	return new;	
+ASTNode newFunction(SymbolTable pTab,const char* name, ASTNode body)
+{
+	ASTNode node;
+	Function func;
+	Symbol sym = checkSymbol(pTab, name);
+	if (sym == NULL)
+	{
+		sym = createSymbol(pTab, name);
+		sym->catalog = SYMBOL_Functional;
+		sym->type = VOID;
+	}
+	else
+	{
+		printf("Error: Re-defination of identifier %s", name);
+	}
+	NEW0(node);
+	node->kind = KFunction;
+	NEW0(func);
+	node->function = func;
+
+	func->sym = sym;
+	func->body = body;
+	return node;
 }
 
-ASTNode newCdelf()
+ASTNode newComposeStmt()
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KCdelf;
-	Block newcdelf;
-	NEW0(newcdelf);
-	new->block = newcdelf;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KComposeStmt;
+	ComposeStmt cstmt;
+	NEW0(cstmt);
+	node->compstmt = cstmt;
 
-	newcdelf->stmts = newList();
-	return new;
-}
-
-ASTNode newFunctionDef(char* name,ASTNode compstat)
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KFunctionDef;
-	FunctionDef newfundef;
-	NEW0(newfundef);
-	new->functiondef = newfundef;
-
-	newfundef->name = name;
-	newfundef->compstat = compstat;
-	return new;	
-}
-
-//ASTNode newMainDef(ASTNode compstat)
-//{
-//	ASTNode new;
-//	NEW0(new);
-//	new->kind = KMainDef;
-//	MainDef newmain;
-//	NEW0(newmain);
-//	new->maindef = newmain;
-//
-//	newmain->compstat = compstat;
-//	return new;	
-//}
-
-ASTNode newCompStat()
-{
-	ASTNode new;
-	NEW0(new);
-	new->kind = KCompStat;
-	Block newstatf;
-	NEW0(newstatf);
-	new->block = newstatf;
-
-	newstatf->stmts = newList();
-	return new;
+	cstmt->stmts = newList();
+	return node;
 }
 
 void destroyCompStat()
 {}
 
 
-ASTNode newIf(ASTNode relation,ASTNode stat)
+ASTNode newIfStmt(ASTNode condition, ASTNode action)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KConditional;
-	Conditional cond;
-	NEW0(cond);
-	new->conditional = cond;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KIfStmt;
+	IfStmt ifs;
+	NEW0(ifs);
+	node->ifstmt = ifs;
 
-	cond->condition = relation;
-	cond->thenAction = stat;
-	return new;	
+	ifs->condition = condition;
+	ifs->thenAction = action;
+	return node;	
 }
 
-ASTNode newWlop(ASTNode relation,ASTNode stat)
+ASTNode newWhileStmt(ASTNode condition, ASTNode action)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KWlop;
-	WhileLoop newwlop;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KWhileStmt;
+	WhileStmt newwlop;
 	NEW0(newwlop);
-	new->loop = newwlop;
+	node->whilestmt = newwlop;
 
-	newwlop->relation = relation;
-	newwlop->stat = stat;
-	return new;	
+	newwlop->condition = condition;
+	newwlop->action = action;
+	return node;	
 }
 
-ASTNode newFunctioncall(char* name)
+ASTNode newCallExpr(SymbolTable pTab, char* name)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KFunctioncall;
-	Functioncall newfuncall;
-	NEW0(newfuncall);
-	new-> functioncall = newfuncall;
-
-	newfuncall-> name = name;
-	return new;	
+	ASTNode node;
+	NEW0(node);
+	node->kind = KCallExper;
+	CallExpr callexpr;
+	NEW0(callexpr);
+	node->callexpr = callexpr;
+	callexpr->sym = lookupSymbol(pTab, name);
+	return node;
 }
 
-ASTNode newRelation(int relop,ASTNode lkid,ASTNode rkid)
+ASTNode newRelationExpr(int relop, ASTNode lkid, ASTNode rkid)
 {
-	ASTNode new;
-	NEW0(new);
-	new->kind = KRelation;
-	Relation newrelat;
+	ASTNode node;
+	NEW0(node);
+	node->kind = KRelationExper;
+	Expr newrelat;
 	NEW0(newrelat);
-	new-> relation = newrelat;
+	node-> expr = newrelat;
 
-	newrelat->relop = relop;
-	newrelat->kid[0] = lkid;
-	newrelat->kid[1] = rkid; 
-	return new;
+	newrelat->op = relop;
+	newrelat->oprands[0] = lkid;
+	newrelat->oprands[1] = rkid; 
+	return node;
 }
 
-void destroyExp(Exp *pnode)
+void destroyExpr(Expr *pnode)
 {
-	Exp node = *pnode;
-	if (*pnode == NULL) return;
-	destroyAST(&node->kids[0]);
-	destroyAST(&node->kids[1]);
+	Expr node = *pnode;
+	if (node == NULL) return;
+	destroyASTNode(&node->oprands[0]);
+	destroyASTNode(&node->oprands[1]);
 	free(node);
 	*pnode = NULL;
 }
 
-void
-destroyRelation(Relation *relat)
-{
-	Relation node = *relat;
-	if (*relat == NULL) return;
-	destroyAST(&node->kid[0]);
-	destroyAST(&node->kid[1]);
-	free(node);
-	*relat = NULL;
-}
-
-void	destroyProgram(Program *prog)
+void destroyProgram(Program *prog)
 {
 	Program node=*prog;
-	if (*prog == NULL) return;
-	destroyAST(&node->block);
-	destroyAST(&node->maindef);
+	if (node == NULL) return;
+	destroyList(&node->decls, (void(*)(void**)) destroyASTNode);
+	destroyASTNode(&node->main);
 	free(node);
 	*prog = NULL;
 }
 
-void destroyBlock(Block *pnode)
+void destroyWhileStmt(WhileStmt *pnode)
 {
-	Block node = *pnode;
-	if (*pnode == NULL) return;
-	destroyList(&node->stmts, (void(*)(void**)) destroyAST);
+	WhileStmt node = *pnode;
+	if (node == NULL) return;
+	destroyASTNode(&node->condition);
+	destroyASTNode(&node->action);
 	free(node);
 	*pnode = NULL;
 }
 
-void	destroyLoop(WhileLoop *pnode)
+void destroyIfStmt(IfStmt *pnode)
 {
-	WhileLoop node = *pnode;
-	if (*pnode == NULL) return;
-	destroyAST(&node->relation);
-	destroyAST(&node->stat);
+	IfStmt node = *pnode;
+	if (node == NULL) return;
+	destroyASTNode(&node->condition);
+	destroyASTNode(&node->thenAction);
+	destroyASTNode(&node->elseAction);
 	free(node);
 	*pnode = NULL;
 }
 
-void	destroyCdecl(Cdecl *pnode)
+void destroyComposeStmt(ComposeStmt *pnode)
 {
-	Cdecl node = *pnode;
-	if (*pnode == NULL) return;
-	destroyAST(&node->cdelf);
+	ComposeStmt node = *pnode;
+	if (node == NULL) return;
+	destroyList(&node->stmts, (void(*)(void**)) destroyASTNode);
 	free(node);
 	*pnode = NULL;
 }
 
-void	destroyVdecl(Vdecl *pnode)
+void destroyFunction(Function *pnode)
 {
-	Vdecl node = *pnode;
-	if (*pnode == NULL) return;
-	destroyAST(&node->vdelf);
+	Function node = *pnode;
+	if (node == NULL) return;
+	destroySymbol(&node->sym);
+	destroyASTNode(&node->body);
 	free(node);
 	*pnode = NULL;
 }
 
-ASTTree newAST()
+void destroySymbol(Symbol *pSym)
 {
-	ASTTree new;
-	NEW0(new);
-	new->symTab = newTable();
-	return new;
+	Symbol sym = *pSym;
+	if (sym == NULL) return;
+	destroyASTNode(&sym->initexpr);
+	free(sym->name);
+	free(sym);
+	*pSym = NULL;
 }
 
-void destroyAST(ASTNode *pnode)
+void destroyVarDeclStmt(VarDeclStmt *pnode)
+{
+	VarDeclStmt decls = *pnode;
+	if (decls == NULL) return;
+	destroyList(&decls->vars, (void(*)(void**)) destroyASTNode);
+	free(decls);
+	*pnode = NULL;
+}
+
+void destroyCallExpr(CallExpr *pnode)
+{
+	CallExpr node = *pnode;
+	if (node == NULL) return;
+	destroyList(&node->arglist, (void(*)(void**)) destroyASTNode);
+	free(node);
+	*pnode = NULL;
+}
+
+ASTree newAST()
+{
+	ASTree node;
+	NEW0(node);
+	node->symTab = newTable();
+	return node;
+}
+
+void destroyAST(ASTree *pTree)
+{
+	ASTree tree = *pTree;
+	if (tree == NULL) return;
+	destroyASTNode(&tree->root);
+	destroyTable(&tree->symTab);
+}
+
+void destroyASTNode(ASTNode *pnode)
 {
 	ASTNode node = *pnode;
 	if (*pnode == NULL) return;
-	int kind = node->kind;
-	
-	switch (kind) {
-	case KValue:
-	case KName:
-	case KFunctioncall:
-	case KAssn:
+	enum AST_NODE_KINDS kind = node->kind;
+	switch (kind)
+	{
+	case KNumber:
 		break;
-	case KParenExp:
-	case KInfixExp:
-	case KAssignExp:
-		destroyExp(&node->exp);
+	case KVarExpr:
+		break;
+	case KAssignExpr:
+	case KParenExpr:
+	case KInfixExpr:
+	case KPrefixExpr:
+	case KRelationExper:
+		destroyExpr(&node->expr);
 		break;
 	case KProgram:
 		destroyProgram(&node->program);
 		break;
-	//case KBlock:
-	case KVdelf:
-	case KCdelf:
-	case KCompStat:
-		destroyBlock(&node->compstat);
+	case KFunction:
+	case KMainFunction:
+		destroyFunction(&node->function);
 		break;
-	case KVdecl:
-		destroyVdecl(&node->vdecl);
+	case KVarDeclStmt:
+	case KConstDeclStmt:
+		destroyVarDeclStmt(&node->vardeclstmt);
 		break;
-	case KCdecl:
-		destroyCdecl(&node->cdeclar);
+	case KVariable:
+	case KConstant:
+		destroySymbol(&node->sym);
 		break;
-	case KRelation:
-		destroyRelation(&node->relation);
+	case KComposeStmt:
+		destroyComposeStmt(&node->compstmt);
 		break;
-	case KWlop:
-	case KConditional:
-		destroyLoop(&node->loop);
+	case KIfStmt:
+		destroyIfStmt(&node->ifstmt);
 		break;
-	//case KCompStat:
-	case KFunctionDef:
-		destroyAST(&node->functiondef->compstat);
+	case KWhileStmt:
+		destroyWhileStmt(&node->whilestmt);
 		break;
-	case KMainDef:
-		destroyAST(&node->functiondef->compstat);
+	case KCallExper:
+		destroyCallExpr(&node->callexpr);
 		break;
 	default:
-		printf("Unhandled ASTNode kind!\n");
+		break;
 	}
 	free(node);
 	*pnode = NULL;
@@ -417,192 +439,150 @@ Loc setLoc(ASTNode node, Loc loc)
 	return node->loc;
 }
 
+void dumpType(Type type)
+{
+	char* typeName[] = {"void","int","const int"};
+	printf(typeName[type]);
+}
+
+void dumpIndent(int indent)
+{
+	for (int j = 0; j<indent; ++j)
+		printf("\t");
+}
+
 void
-dumpAST(ASTNode node)  
+dumpASTNode(ASTNode node, int indent)
 {
    if(node != NULL){
 	int kind = node->kind;
 
 	switch (kind) {
-	case KValue:
+	case KNumber:
 	{
-		printf("%g", node->val);
+		printf("%d", node->val);
 		break;
 	}
-	case KName:
+	case KVarExpr:
 	{
 		printf("%s", node->sym->name);
 		break;
 	}
-	case KParenExp:
+	case KParenExpr:
 	{
 		printf("(");
-		dumpAST(node->exp->kids[0]);
+		dumpASTNode(node->expr->oprands[0],indent);
 		printf(")");
 		break;
 	}
-	case KInfixExp:
+	case KRelationExper:
+	case KInfixExpr:
 	{
-		dumpAST(node->exp->kids[0]);
-		printf("%s", opname[node->exp->op]);
-		dumpAST(node->exp->kids[1]);
+		dumpASTNode(node->expr->oprands[0], indent);
+		printf("%s", opname[node->expr->op]);
+		dumpASTNode(node->expr->oprands[1], indent);
 		break;
 	}
-	case KAssignExp:
+	case KAssignExpr:
 	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
-		dumpAST(node->exp->kids[0]);
-		printf("%s", opname[node->exp->op]);
-		dumpAST(node->exp->kids[1]);
-		printf(" ; ");
+		dumpIndent(indent);
+		dumpASTNode(node->expr->oprands[0], indent);
+		printf("%s", opname[node->expr->op]);
+		dumpASTNode(node->expr->oprands[1], indent);
+		printf(";\n");
 		break; 
 	}
 	case KProgram:  
 	{
-		dumpAST(node->program->block);
-		dumpAST(node->program->maindef);
-		break;
-	}
-	//case KBlock:  
-	//{
-	//	List stmts = node->block->stmts;
-	//	ListItr itr = newListItr(stmts, 0);
-	//	while ( hasNext(itr) )  {
-	//		dumpAST((ASTNode)nextItem(itr));
-	//		printf("\n  ");
-	//	}
-	//	destroyListItr(&itr);
-	//	break;		
-	//}
-	case KVdecl:  
-	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
-		printf("int ");
-		printf(node->vdecl->name);
-		dumpAST(node->vdecl->vdelf);
-		printf(";\n ");
-		break;
-	}
-	case KVdelf:  
-	{
-		List stmts = node->block->stmts;
+		List stmts = node->program->decls;
 		ListItr itr = newListItr(stmts, 0);
-		while ( hasNext(itr) )  {
-			printf(" , ");
-			dumpAST((ASTNode)nextItem(itr));
-	//		printf("\n");
+		while (hasNext(itr))  {
+			dumpASTNode((ASTNode) nextItem(itr), indent);
 		}
 		destroyListItr(&itr);
-		break;		
+		dumpASTNode(node->program->main, indent);
+		break;
 	}
-
-	case KCdecl:  
+	case KConstDeclStmt:
+	case KVarDeclStmt:  
 	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
-		printf("const int ");
-		dumpAST(node->cdeclar->assn);
-		dumpAST(node->cdeclar->cdelf);
+		dumpIndent(indent);
+		//printf("int ");
+		dumpType(node->vardeclstmt->type);
+		putchar(' ');
+		//printf(node->vardeclstmt->type);
+		List stmts = node->vardeclstmt->vars;
+		ListItr itr = newListItr(stmts, 0);
+		while (hasNext(itr))  {
+			if (hasPrevious(itr)) printf(", ");
+			dumpASTNode((ASTNode) nextItem(itr), indent);
+		}
+		destroyListItr(&itr);
 		printf(";\n");
 		break;
 	}
-	case KAssn:
+	case KVariable:
+	case KConstant:
 	{
-		printf(node->assn->name);
-		printf(" = ");
-		printf("%d",node->assn->num);
+		printf(node->sym->name);
+		if (node->sym->initexpr)
+			printf(" = ");
+			dumpASTNode(node->sym->initexpr, indent);
 		break;
 	}
-	case KCdelf:  
-	{
-		List stmts = node->block->stmts;
-		ListItr itr = newListItr(stmts, 0);
-		while ( hasNext(itr) )  {
-			printf(" , ");
-			dumpAST((ASTNode)nextItem(itr));
-//			printf("\n ");
-		}
-		destroyListItr(&itr);
-		break;		
-	}
-	case KFunctionDef:
+	case KMainFunction:
+	case KFunction:
 	{
 		printf("void ");
-		printf(node->functiondef->name);
-		printf("()\n"  );
-		i++;
-		dumpAST(node->functiondef->compstat);
-		i--;
-		break;
-	}
-	case KMainDef:
-	{
-		printf("void ");
-		printf(" main ");
+		printf(node->function->sym->name);
 		printf("()\n");
-		i++;
-		dumpAST(node->functiondef->compstat);
-		i--;
+		dumpASTNode(node->function->body, indent);
 		break;
 	}
-	case KCompStat:
+	case KComposeStmt:
 	{
-		List stmts = node->compstat->stmts;
+		List stmts = node->compstmt->stmts;
 		ListItr itr = newListItr(stmts, 0);
+		dumpIndent(indent);
+		printf("{\n");
 		while ( hasNext(itr) )  {
-			dumpAST((ASTNode)nextItem(itr));
-			printf("\n ");
+			dumpASTNode((ASTNode) nextItem(itr), indent + 1);
 		}
+		dumpIndent(indent);
+		printf("}\n");
 		destroyListItr(&itr);
 		break;		
 	}
-	case KConditional:
+	case KIfStmt:
 	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
+		dumpIndent(indent);
 		printf("if (");
-		dumpAST(node->loop->relation);
-		i++;
+		dumpASTNode(node->ifstmt->condition, indent);
 		printf(")\n");
-		dumpAST(node->loop->stat);
-		i--;
+		if (node->ifstmt->thenAction->kind != KComposeStmt)
+			dumpASTNode(node->ifstmt->thenAction, indent + 1);
+		else
+			dumpASTNode(node->ifstmt->thenAction, indent);
 		break;
 	}
-	case KWlop:
+	case KWhileStmt:
 	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
-		printf("while ( ");
-		dumpAST(node->loop->relation);
+		dumpIndent(indent);
+		printf("while (");
+		dumpASTNode(node->whilestmt->condition, indent);
 		printf(" )\n");
-		i++;
-		dumpAST(node->loop->stat);
-		i--;
+		if (node->whilestmt->action->kind != KComposeStmt)
+			dumpASTNode(node->whilestmt->action, indent + 1);
+		else
+			dumpASTNode(node->whilestmt->action, indent);
 		break;
 	}
-	case KFunctioncall:
+	case KCallExper:
 	{
-		int j;
-		for(j=i;j>0;j--)
-			printf("\t");
-		printf(node->functioncall->name);
-		printf(" () ");
-		printf(" ; ");
-		printf("\n");
-		break;
-	}
-	case KRelation:
-	{
-		dumpAST(node->relation->kid[0]);
-		printf("%s", opname[node->relation->relop]);
-		dumpAST(node->relation->kid[1]);
+		dumpIndent(indent);
+		printf(node->callexpr->sym->name);
+		printf("()");
+		printf(";\n");
 		break;
 	}
 	default:

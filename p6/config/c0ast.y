@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "common.h"
-extern SymbolTable symtab;
-extern ASTTree ast;
+//extern SymbolTable ast->symTab;
+static ASTree ast = NULL;
 
 extern int yylex();
 int yyerror(char *message);
@@ -23,44 +23,41 @@ int yyerror(char *message);
 
 //%token EQ LE NE BE
 //%token ASGN LT GT
-%token PLUS MINUS MULT DIV ASGN LT GT EQ LE NE BE
+%token PLUS MINUS MULT DIV MOD ASGN LT GT EQ LE NE BE
 %token '{' '}' '(' ')' ',' '.' ';'
 
 %left PLUS MINUS
-%left MULT DIV
+%left MULT DIV MOD
 //%right UMINUS
 
 %type <ival> number
-%type <ival> PLUS MINUS MULT DIV ASGN LT GT EQ LE NE BE
+%type <ival> PLUS MINUS MULT DIV MOD ASGN LT GT EQ LE NE BE
 %type <name> ident
-%type <node> goal Program Decl Decls Vdecl Vdelf 
-%type <node> Cdecl Assn Cdelf FunctionDef MainDef CompStat Statf Stat 
-%type <node> Relation Exp
+%type <node> Program FunctionDecl FunctionDefine MainDefine
+%type <node> Decl Decls Vdecl VarList Cdecl ConstList
+%type <node> CompStat Statf Stat 
+%type <node> Relation Exp InitExpr
 
 %%
-goal		:Program
+Program		:Decls MainDefine
 		{
-			debug("goal ::= Program \n");
-			ast->root = $$;               
-		}
-		;
-Program		:Decls MainDef
-		{
-			debug("Program ::= Decls MainDef \n");
-			$$ = newProgram($1,$2);
+			debug("Program ::= Decls MainDefine \n");
+			$$ = $1;
+			$$->program->main = $2;
 			setLoc($$,(Loc)&(@$));
+			ast->root = $$;               
 		}
 		;
 Decls		:
 		{
 			debug("Decls ::= \n");
-			$$ = newBlock();
-			$$->kind = KDecls;
+			$$ = newProgram();
+			//$$->kind = KDecls;
 		}
 		|Decls Decl
 		{
 			debug("Decls ::= Decls Decl \n");
-			addLast($1->block->stmts, $2);
+			addLast($1->program->decls, $2);
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
@@ -71,13 +68,13 @@ Decl		:Vdecl
 			$$ = $1;
 			//setLoc($$,(Loc)&(@$));
 		}
-		|Cdecl
+		| Cdecl
 		{
 			debug("Decl ::= Cdecl \n");
 			$$ = $1;
 			//setLoc($$,(Loc)&(@$));
 		}
-		|FunctionDef
+		| FunctionDefine
 		{
 			debug("Decl ::= FunctionDef \n");
 			$$ = $1;
@@ -87,27 +84,30 @@ Decl		:Vdecl
 Vdecl		:intsym VarList ';'	
 		{
 			debug("Vdecl ::= intsym ident Vdelf ;\n");
-			$$ = newVdecl($1,$2);
+			$$ = $2;
 			setLoc($$,(Loc)&(@$));
 		}
 		;
+
 VarList		:VarList ',' ident InitExpr
 		{
 			debug("Vdelf ::= Vdelf , ident \n");
-			addLast($1->block->stmts, newVariable($3,$4));
+			addLast($1->vardeclstmt->vars, newVariable(ast->symTab,$3,$4));
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		| ident InitExpr
 		{
 			debug("Vdelf ::= \n");
-			$$ = newVdelf();
+			$$ = newVarDeclStmt(INT);
+			addLast($$->vardeclstmt->vars, newVariable(ast->symTab,$1,$2));
+			setLoc($$,(Loc)&(@$));
 		}
 		;
 
-InitExpr	: ASGN NUMBER
+InitExpr	: ASGN number
 		{
-			$$ = $2;
+			$$ = newNumber($2);
 			setLoc($$, (Loc)&(@$));
 		}
 		| 
@@ -119,40 +119,50 @@ InitExpr	: ASGN NUMBER
 Cdecl		:constsym intsym ConstList ';'
 		{
 			debug("Cdecl ::= constsym intsym Assn Cdelf ;\n");
-			$$ = newCdecl($3,$4);
+			$$ = $3;
 			setLoc($$,(Loc)&(@$));
 		}
 		;
 
 ConstList		:ConstList ',' ident InitExpr
 		{
-			ASTNode conDef = newConst($3,$4);
-			debug("Cdelf ::= Cdelf , Assn \n");
-			addLast($1->block->stmts,conDef);
+			debug("Vdelf ::= Vdelf , ident \n");
+			addLast($1->vardeclstmt->vars, newConstant(ast->symTab,$3,$4));
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
 		| ident InitExpr
 		{
-			debug("Cdelf ::= \n");
-			$$ = newConstant($1,$2);
+			debug("Vdelf ::= \n");
+			$$ = newConstDeclStmt(CONST_INT);
+			addLast($$->vardeclstmt->vars, newConstant(ast->symTab,$1,$2));
+			setLoc($$,(Loc)&(@$));
 		}
 		;
 
-FunctionDef	:voidsym ident '(' ')'  CompStat
+FunctionDecl:voidsym ident '(' ')'
+		{
+			debug("FunctionDecl ::= voidsym ident ()\n");
+			$$ = newFunction(ast->symTab, $2, NULL);
+		}
+		;
+
+FunctionDefine	:FunctionDecl CompStat
 		{
 			debug("FunctionDef ::= voidsym ident ()  CompStat \n");
-			$$ = newFunctionDef($2,$5);
+			$$->function->body = $2;
 			setLoc($$,(Loc)&(@$));
 		} 
 		;
-MainDef		:voidsym mainsym '(' ')'  CompStat
+
+MainDefine		:voidsym mainsym '(' ')'  CompStat
 		{
-			debug("MainDef ::= voidsym mainsym () CompStat \n");
-			$$ = newFunctionDef("main",$5);
+			debug("MainDefine ::= voidsym mainsym () CompStat \n");
+			$$ = newFunction(ast->symTab,"main",$5);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
+
 CompStat	:'{'Statf'}'
 		{
 			debug("CompStat ::= { Statf } \n");
@@ -164,7 +174,7 @@ CompStat	:'{'Statf'}'
 Statf		:Statf Stat
 		{
 			debug("Statf ::= Statf Stat \n");
-			addLast($1->compstat->stmts,$2);
+			addLast($1->compstmt->stmts,$2);
 			$$ = $1;
 			setLoc($$,(Loc)&(@$));
 		}
@@ -172,25 +182,25 @@ Statf		:Statf Stat
 		{
 			debug("Statf ::= \n");
 			pushTable(ast->symTab);
-			$$ = newCompStat();
+			$$ = newComposeStmt();
 		}
 		;
 Stat		:ident ASGN Exp ';' 
 		{
 			debug("stat ::= ident ASGN Exp ; \n");
-			$$=newAssignment($2,newName(symtab, $1), $3);
+			$$=newAssignExpr($2,newVarExpr(ast->symTab, $1), $3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|ifsym '(' Relation ')' Stat 
 		{
 			debug("stat ::= ifsym ( Relation ) Stat  \n");
-			$$=newIf($3,$5);
+			$$=newIfStmt($3,$5);
 			setLoc($$,(Loc)&(@$));
 		}
 		|whilesym '(' Relation ')'  Stat
 		{
 			debug("stat ::= whilesym ( Relation )  Stat \n");
-			$$ = newWlop($3,$5);
+			$$ = newWhileStmt($3,$5);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Vdecl
@@ -208,7 +218,7 @@ Stat		:ident ASGN Exp ';'
 		|ident '(' ')' ';'
 		{
 			debug("stat ::= ident ( ) ; \n");
-			$$ = newFunctioncall(newName(symtab,$1));
+			$$ = newCallExpr(ast->symTab,$1);
 			setLoc($$,(Loc)&(@$));
 		}
 		|CompStat
@@ -221,37 +231,37 @@ Stat		:ident ASGN Exp ';'
 Relation	:Exp GT Exp
 		{
 			debug("Relation ::= Exp GT Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Exp LT Exp
 		{
 			debug("Relation ::= Exp LT Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Exp EQ Exp
 		{
 			debug("Relation ::= Exp EQ Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Exp NE Exp
 		{
 			debug("Relation ::= Exp NQ Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Exp LE Exp
 		{
 			debug("Relation ::= Exp LE Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		|Exp BE Exp
 		{
 			debug("Relation ::= Exp BE Exp \n");
-			$$=newRelation($2,$1,$3);
+			$$=newRelationExpr($2,$1,$3);
 			setLoc($$,(Loc)&(@$));
 		}
 		;
@@ -264,37 +274,43 @@ Exp     	: number
 		| ident
 		{
 			debug("Exp ::= ident\n");
-			$$ = newName(symtab, $1); 
+			$$ = newVarExpr(ast->symTab, $1); 
 			setLoc($$, (Loc)&(@$));
 		}
 		| Exp PLUS Exp
 		{
 			debug("Exp ::= Exp PLUS Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
+			$$ = newInfixExpr($2, $1, $3); 
 			setLoc($$, (Loc)&(@$));
 		}
 		| Exp MINUS Exp
 		{
 			debug("Exp ::= Exp MINUS Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
+			$$ = newInfixExpr($2, $1, $3); 
 			setLoc($$, (Loc)&(@$));
 		}
 		| Exp MULT Exp
 		{
 			debug("Exp ::= Exp MULT Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
+			$$ = newInfixExpr($2, $1, $3); 
 			setLoc($$, (Loc)&(@$));
 		}
 		| Exp DIV Exp
 		{
 			debug("Exp ::= Exp DIV Exp\n");
-			$$ = newInfixExp($2, $1, $3); 
+			$$ = newInfixExpr($2, $1, $3); 
+			setLoc($$, (Loc)&(@$));
+		}
+		| Exp MOD Exp
+		{
+			debug("Exp ::= Exp MOD Exp\n");
+			$$ = newInfixExpr($2, $1, $3); 
 			setLoc($$, (Loc)&(@$));
 		}
 		| '(' Exp ')'
 		{
 			debug("Exp ::= ( Exp )\n");
-			$$ = newParenExp($2);
+			$$ = newParenExpr($2);
 			setLoc($$, (Loc)&(@$));
 		}
 
@@ -304,4 +320,12 @@ int yyerror(char *message)
 {
 	printf("%s\n",message);
 	return 0;
+}
+
+ASTree parse()
+{
+	ASTree tree = newAST();
+	ast = tree;
+	yyparse();
+	return tree;
 }

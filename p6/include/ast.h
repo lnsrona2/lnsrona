@@ -13,153 +13,148 @@ typedef struct location {
 
 typedef struct {
 	int 	op;
-	//int type;
+	int		type;
 	int 	val;
-	struct astnode	*kids[2];// kids of the AST node
-} *Exp;
-
-
-typedef struct {
-	List  stmts;
-} *Block;
+	struct astnode	*oprands[2];// kids of the AST node
+} *Expr;
 
 typedef struct{
-	int relop;
-	bool truth;
-	struct astnode *kid[2];
-} *Relation;
+	Symbol sym; //no ownership, symbol's owner's ship belongs to defination nodes
+	List arglist;
+} *CallExpr;
 
 typedef struct{
-	char *name;
-} *Functioncall;
-
-typedef struct{
-	struct astnode *relation;
-	struct astnode *stat;
-} *WhileLoop;
+	//SymbolTable localTable;
+	List stmts;
+} *ComposeStmt;
 
 typedef struct{
 	struct astnode *condition;
 	struct astnode *thenAction;
 	struct astnode *elseAction;
-} *Conditional;
-
-//typedef struct{
-//	struct astnode *compstat;
-//} *MainDef;
-
-typedef struct{
-	char *name;
-	struct astnode *compstat;
-} *FunctionDef;
+} *IfStmt;
 
 typedef struct{
 	char *name;
 	int num;
-} *Assn;
+} *AssignStmt;
 
 typedef struct{
-	int type;
+	Symbol sym;
+	struct astnode *body;
+} *Function;
+
+typedef struct{
+	Type type;
 	List vars;
-} *VarDeclList;
+} *VarDeclStmt;
 
 typedef struct{
-	struct astnode *block;
-	struct astnode *maindef;
+	//SymbolTable globalTable;
+	List decls;
+	struct astnode * main;
 } *Program;
 
 //------------------------------------------------------------------
+typedef struct{
+	struct astnode *condition;
+	struct astnode *action;
+} *WhileStmt;
 
 typedef struct astnode{
-	enum {
-		KValue = 0x200,		// numerial value:
-		KName,			// name, such as variable name
-		KInfixExp,		// infix expression
-		KAssignExp,		// assignment expression
-		KParenExp,		// parentheses expression
-		KProgram,
-		KDecls,
-		KBlock,			// block
-		KVdecl,
-		KCdecl,
-		KAssn,
-		KCdelf,
-		KFunctionDef,
-		KMainDef,
-		KCompStat,
-		//KStatf,
-		KConditional,	//If statement
-		KWlop,
-		KFunctioncall,
-		KRelation,
+	enum AST_NODE_KINDS{
+		KNumber = 0x200,		// numerial value:
+		KVarExpr,
+		KParenExpr,		// parentheses expression
+		KInfixExpr,		// infix expression
+		KPrefixExpr,
+		KRelationExper,
+
+		KProgram,	// Program is decls
+		KFunction,
+		KMainFunction,
+		KVariable,
+		KConstant,
+
+		KVarDeclStmt,
+		KConstDeclStmt,
+
+		KComposeStmt,
+		KIfStmt,	//If statement
+		KWhileStmt,
+		KCallExper,
+		KAssignExpr,		// assignment expression
 	} kind;	// kind of the AST node
-	union {		// information of various kinds of AST node 
-		int  val;		// KValue: numerial value
-		Symbol sym;		// KName: symbols 
-		Exp   exp;		// KPrefixExp,
-		// KInfixExp,
-		// KAssignExp,
-		// KParenExp
-		Program	program;
-		//Block block;			// block
-		VarDeclList varlist;
-		FunctionDef functiondef;
-		Block compstat;
-		Block decls;
-		WhileLoop loop;
-		Conditional conditional;
-		Functioncall functioncall;
-		Relation relation;
+
+	// information of various kinds of AST node 
+	union {		
+		int  val;		// KValue
+		Symbol sym;		// KVariable , KConstant , KVarExpr
+		Expr   expr;		// KPrefixExpr,KInfexExpr,KparenExpr,KAssignExpr,KRelationExpr
+		CallExpr callexpr;	//KCallExpr
+
+		Program	program;	//KProgram
+		VarDeclStmt vardeclstmt;	//KVariableList,KConstantList
+		Function function;	//KFunction
+
+		ComposeStmt compstmt;	//KComposeStmt
+		WhileStmt whilestmt;	//KWhileStmt
+		IfStmt ifstmt;	//KIfStmt
 	};
 	Loc 	loc;			// locations
 } *ASTNode;
 
-typedef struct ASTtree {
+typedef struct astree {
 	ASTNode root;
 	SymbolTable symTab;
-} *ASTTree;
+} *ASTree;
 
 // functions for creating various kinds of ASTnodes
+bool IsStatement(ASTNode node);
+bool IsExpersion(ASTNode node);
+bool IsDeclartion(ASTNode node);
 // Symbols and declarations
-ASTNode newVariable(const char* name, ASTNode initExpr);
-ASTNode newConstant(const char* name, ASTNode initExpr);
-ASTNode newFunction(const char* name, ASTNode body);
-void destroyVariable();
-void destroyFunction();
+ASTNode newVariable(SymbolTable pTab, const char* name, ASTNode initExpr);
+ASTNode newConstant(SymbolTable pTab, const char* name, ASTNode initExpr);
+ASTNode newFunction(SymbolTable pTab, const char* name, ASTNode body);
+//void destroyVariable();
+void destroyFunction(Function *pFunc);
 
-ASTNode newVarDecl(int type);
-ASTNode newConstDecl(int type);
-void	destroyVarDecl(Vdecl *pnode);
-void	destroyConstDecl(Cdecl *pnode);
+ASTNode newVarDeclStmt(Type type);
+ASTNode newConstDeclStmt(Type type);
+void	destroyVarDeclStmt(VarDeclStmt *pvarlist);
 
 // Expressions
 ASTNode newNumber(int value);
-ASTNode newPrefixExp(int op, ASTNode exp);
-ASTNode newParenExp(ASTNode exp);
-ASTNode newInfixExp(int op, ASTNode left, ASTNode right);
-ASTNode newAssignment(int op, ASTNode left, ASTNode right);
-void	destroyExp(Exp *pexp);
+ASTNode newVarExpr(SymbolTable pTab, const char* name);
+ASTNode newPrefixExpr(int op, ASTNode exp);
+ASTNode newParenExpr(ASTNode exp);
+ASTNode newInfixExpr(int op, ASTNode left, ASTNode right);
+ASTNode newAssignExpr(int op, ASTNode left, ASTNode right);
+ASTNode newRelationExpr(int relop, ASTNode lkid, ASTNode rkid);
+void	destroyExpr(Expr *pexp);
 
-ASTNode newProgram(ASTNode block, ASTNode maindef);
+ASTNode newCallExpr(SymbolTable pTab, char* name);
+void	destroyCallExpr(CallExpr *loop);
+
+ASTNode newProgram();
 void	destroyProgram(Program *prog);
 
-ASTNode newBlock();
-void	destroyBlock(Block *pblock);
-
-
-
 //Statments
-ASTNode newCompStat();
-ASTNode newIf(ASTNode relation, ASTNode stat);
-ASTNode newWlop(ASTNode relation, ASTNode stat);
-void	destroyLoop(WhileLoop *loop);
-ASTNode newFunctioncall(char* name);
-ASTNode newRelation(int relop, ASTNode lkid, ASTNode rkid);
-void	destroyRelation(Relation *prelation);
+ASTNode newComposeStmt();
+void	destroyComposeStmt(ComposeStmt *loop);
+ASTNode newIfStmt(ASTNode condition, ASTNode action);
+void	destroyIfStmt(IfStmt *loop);
+ASTNode newWhileStmt(ASTNode condition, ASTNode action);
+void	destroyWhileStmt(WhileStmt *loop);
 
-ASTTree newAST();
-void	destroyAST(ASTNode *pnode);
-void 	dumpAST(ASTNode node);
+void	destroyASTNode(ASTNode *pnode);
+
+ASTree newAST();
+void	destroyAST(ASTree *pTree);
+
+void 	dumpASTNode(ASTNode node, int indent);
+
 Loc		setLoc(ASTNode node, Loc loc);
 
 #endif // !_AST_H

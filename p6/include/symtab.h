@@ -14,6 +14,8 @@
 
 #include <stdbool.h>
 
+struct astnode;
+
 enum SymbolCatalog
 {
 	SYMBOL_Constant,
@@ -24,23 +26,34 @@ enum SymbolCatalog
 	SYMBOL_NameSpace,
 	None
 };
+
+typedef enum TYPES_ENUM
+{
+	VOID = 0,
+	INT,
+	CONST_INT,
+} Type;
+
+void dumpType(Type type);
+
 // symbolic table
 typedef struct symbol {
 	char	*name;	// name of the symbol
 	bool	isInitial;	// whether it is initialized	
-	int		val;
-	//int		type;
+	int	val;
 	enum SymbolCatalog catalog; // changed from type 
 
-	//Type   type;	// type of the symbol
-	//struct astnode	*initexp;	// value of the symbol
+	Type	type;
+	struct astnode	*initexpr;	// value of the symbol
 	int	addr;	// addr of the symbol
 	int	level;  // if is a local symbol
-	struct astnode	*declaration;	//Pointer to the declaration.
+	//struct astnode	*declaration;	//Pointer to the declaration.
 } *Symbol;
 
+void destroySymbol(Symbol *pSym);
+
 typedef struct entry {
-	struct symbol	sym;
+	struct symbol	*sym;
 	struct entry	*next;
 	long			id;	// using this to liner the hash tab.
 } *Entry;
@@ -61,7 +74,7 @@ typedef struct table {
 
 // Function declarations corresponding to symbolic table
 SymbolTable 	newTable();
-void 	destroyTable();
+void 	destroyTable(SymbolTable *pTab);
 
 /// <summary>
 /// Lookup for the first symbol with the specified name inside a symbolic table stack.

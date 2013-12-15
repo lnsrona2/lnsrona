@@ -359,6 +359,7 @@ listremove(List list, int index)
 void
 destroyList(List *list, void(*destroyItem)(void**))
 {
+	if (*list == NULL) return;
 	listclear(*list, destroyItem);
 	free(*list);
 	*list = NULL;

@@ -36,15 +36,15 @@ comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
 "main"		{ return(mainsym);}
 
 {octal}	     	{ 
-			yylval.ival = atol(yytext);
+			yylval.ival = strtol(yytext,NULL,8);//atol(yytext);
 			return(number);
 		}
 {digit}    	{ 
-			yylval.ival = atol(yytext);
+			yylval.ival = strtol(yytext,NULL,10);//atol(yytext);
 			return(number);
 		}
 {hex}	     	{ 
-			yylval.ival = atol(yytext);
+			yylval.ival = strtol(yytext,NULL,16);//atol(yytext);
 			return(number);
 		}
 {ident} 	{ 
@@ -103,6 +103,10 @@ comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
 "/"		{
 			yylval.ival = OP_DIV;
 			 return(DIV);
+		}
+"%"		{
+			yylval.ival = OP_MOD;
+			return(MOD);
 		}
 
 "{"		{ return('{');}

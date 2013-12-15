@@ -1,17 +1,31 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "C0.h"
+#include "pcode.h"
+
+
+#define STACK_MAX 2000
+
+instruction* code;
+long s[STACK_MAX];
+
+long Locate(long base, long segment, long offset){
+	switch (segment){
+	case 0: return offset;
+	case 1: return base + offset;
+	default: return offset;
+	}
+}
 
 long base(long b, long l)
 {
 	long b1;
-	
-	b1=b;
+
+	b1 = b;
 	while (l>0)	// find base l levels down
 	{
-		b1=s[b1];
-		l=l-1;
+		b1 = s[b1];
+		l = l - 1;
 	}
 	return b1;
 }
@@ -26,8 +40,13 @@ void interpret()
 	s[1]=0; s[2]=0; s[3]=0;
 	do
 	{
+		if (t > 100){
+			printf("stack overflow.\n");
+			return;
+		}
 		i=code[p];
-		p=p+1;
+		printf("%3d : %s %3d %3d ; [%3d] = %3d\n", p, fctname[i.f], i.l, i.a, t, s[t]);
+		p = p + 1;
 		switch(i.f)
 		{
 		case lit:
@@ -55,7 +74,7 @@ void interpret()
 				t=t-1; s[t]=s[t]/s[t+1];
 				break;
 			case 6:
-				s[t]=s[t]%2;
+				t = t - 1; s[t] = s[t] % s[t + 1];
 				break;
 			case 8:
 				t=t-1; s[t]=(s[t]==s[t+1]);
@@ -79,9 +98,12 @@ void interpret()
 			break;
 		case lod:
 			t=t+1; s[t]=s[base(b,i.l)+i.a];
+			printf(" lod : [%3d] = %3d\n", base(b, i.l) + i.a, s[t]);
 			break;
 		case sto:
-			s[base(b,i.l)+i.a]=s[t]; printf("%10ld\n", s[t]); t=t-1;
+			s[base(b,i.l)+i.a]=s[t];
+			printf(" sto : [%3d] = %3d\n", base(b, i.l) + i.a, s[t]);
+			t = t - 1;
 			break;
 		case cal:		// generate new block mark
 			s[t+1]=base(b,i.l); s[t+2]=b; s[t+3]=p;
@@ -98,17 +120,39 @@ void interpret()
 				p=i.a;
 			t=t-1;
 			break;
+		default:
+			printf("invaliad instruction.");
+			return;
 		}
 	}while(p!=0);
 	printf("end C0\n");
 }
 
-int main()
+void printCodes(instruction* code , int len){
+	for (int i = 0; i < len; i++)
+	{
+		printf("%3d : %s %3d %3d\n", i, fctname[code[i].f], code[i].l, code[i].a);
+	}
+}
+
+int main(int argc, char *argv[])
 {	
 	FILE* infile = NULL;
-	printf("please input source program file name: ");
-	scanf("%s",infilename);
-	printf("\n");
+	char infilename[256];
+	if (argc == 1) {
+		printf("please input source program file name: ");
+		scanf("%s", infilename);
+		printf("\n");
+	}
+	else {
+		strcpy(infilename, argv[1]);
+	}
+
+	//if ((argc>2) && (strcmp(argv[2], "-d") == 0))
+	//	debug = 1;
+	//if ((argc>2) && (strcmp(argv[2], "-d2") == 0))
+	//	debug2 = debug = 1;
+
 	if((infile=fopen(infilename,"rb"))==NULL)
 	{
 		printf("File %s can't be opened.\n", infilename);
@@ -120,10 +164,12 @@ int main()
 	// Read the length of this array ("blob")
 	fread(&Length, sizeof(long), 1, infile);
 	// allocate the space for save it.
-	//code = (instruction*) malloc(sizeof(instruction) *Length);
+	code = (instruction*) malloc(sizeof(instruction) *(Length + 1));
 	// Read the array
 	fread(code, sizeof(instruction), Length, infile);
 	fclose(infile);
+
+	printCodes(code, Length);
 
 	//while(!feof(infile))
 	//{

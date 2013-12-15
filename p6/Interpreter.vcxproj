@@ -78,7 +78,7 @@
     <ClCompile Include="src\interpret.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\C0.h" />
+    <ClInclude Include="include\pcode.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

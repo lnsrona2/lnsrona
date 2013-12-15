@@ -1,5 +1,5 @@
 /*递归调用*/
-int n;
+int n,f;
 void factorial(){
 	if(n==1)	f=1;
 	if(n>1){

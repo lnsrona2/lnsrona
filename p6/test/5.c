@@ -1,6 +1,6 @@
 /*比较全面的测试例子*/
 const int m=7,n=85;
-int x,y,z,q,r;
+int x=7,y=85,z,q,r;
 void multiply()
 {
 	int a,b;

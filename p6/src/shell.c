@@ -3,23 +3,27 @@
 */
 
 #include "common.h"
-#include "C0.h"
+#include "pcodegen.h"
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 
-SymbolTable symtab = NULL; //Strong defineation
-ASTTree ast = NULL;
+
+//SymbolTable symtab = NULL; //Strong defineation
+//ASTree ast = NULL;
 FILE* outfile = NULL;
+char infilename[256], outfilename[256];
 
-int main(int argc, char *argv[])
+extern struct BitCodes codeGen(ASTree ast);
+extern ASTree parse();
+
+int main(int argc, char *argv [])
 {
-	symtab = newTable();
-	ast = newAST();
 
 	// Section of parsing command line arguments
 	// Added by Yupeng
 	int k, flag = 0;
-	for (k = 1; k<argc; k++)
+	for (k = 1; k < argc; k++)
 	{
 		if (argv[k][0] != '-') {
 			strcpy(infilename, argv[1]);
@@ -47,21 +51,40 @@ int main(int argc, char *argv[])
 	// End of Arguments parsing
 
 	printf("Parsing ...\n");
-	yyparse();
-	printf("\n\nDump the program from the generated AST:\n  ");
-	dumpAST(ast->root);
+	ASTree ast = parse();
+	printf("\n\nDump the program from the generated AST:\n");
+	dumpASTNode(ast->root, 0);
 
 	// Section of code generate and output to file
 	// Added by Yupeng Zhang
-	generate(symtab,ast->root); 
-	
-	fwrite(&cx, sizeof(long), 1, outfile);
-	fwrite(code, sizeof(instruction), cx, outfile);
-	// End of Section
+	printf("\n\nPCode generated from the generated AST:\n");
+	PcodeGenerater generator = newPcodeGenerater();
+	generate(generator, ast->root);
 
-	destroyAST(&ast->root);
+	int result;
+	printCodes(generator->code, generator->cx);
+	result = fwrite(&generator->cx, sizeof(long), 1, outfile);
+	result = fwrite(generator->code, sizeof(instruction), generator->cx, outfile);
+	//fclose(outfile);
+	
+	//freopen(outfilename, "r", outfile);
+
+	//system("PAUSE");
+	//printf("=====================\n");
+	//FILE* infile = fopen(outfilename, "r");
+	//if (outfile){
+	//	int len = fread(&len, sizeof(long), 1, outfile);
+	//	instruction* code = (instruction*) malloc(sizeof(instruction) *(len + 1));
+	//	fread(code, sizeof(instruction), len, outfile);
+	//	printCodes(code, len);
+	//	fclose(outfile);
+	//	free(code);
+	//}
+
+	// End of Section
+	destroyAST(&ast);
+	destroyPcodeGenerater(&generator);
 	printf("\n\nFinished destroying AST.\n");
-	destroyTable(&symtab);
-	printf("\n\nFinished destroying symbolic table.\n");
+
 	return(0);
 }

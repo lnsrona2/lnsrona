@@ -41,9 +41,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\C0.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -67,6 +64,12 @@
     </ClInclude>
     <ClInclude Include="include\opcfg.h">
       <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pcode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pcodegen.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
