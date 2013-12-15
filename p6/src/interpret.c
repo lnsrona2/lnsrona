@@ -8,6 +8,7 @@
 
 instruction* code;
 long s[STACK_MAX];
+int debug = 0;
 
 long Locate(long base, long segment, long offset){
 	switch (segment){
@@ -45,7 +46,8 @@ void interpret()
 			return;
 		}
 		i=code[p];
-		printf("%3d : %s %3d %3d ; [%3d] = %3d\n", p, fctname[i.f], i.l, i.a, t, s[t]);
+		if (debug >= 2)
+			printf("%3d : %s %3d %3d ; [%3d] = %3d\n", p, fctname[i.f], i.l, i.a, t, s[t]);
 		p = p + 1;
 		switch(i.f)
 		{
@@ -98,7 +100,8 @@ void interpret()
 			break;
 		case lod:
 			t=t+1; s[t]=s[base(b,i.l)+i.a];
-			printf(" lod : [%3d] = %3d\n", base(b, i.l) + i.a, s[t]);
+			if (debug >= 1)
+				printf(" lod : [%3d] = %3d\n", base(b, i.l) + i.a, s[t]);
 			break;
 		case sto:
 			s[base(b,i.l)+i.a]=s[t];
@@ -148,10 +151,10 @@ int main(int argc, char *argv[])
 		strcpy(infilename, argv[1]);
 	}
 
-	//if ((argc>2) && (strcmp(argv[2], "-d") == 0))
-	//	debug = 1;
-	//if ((argc>2) && (strcmp(argv[2], "-d2") == 0))
-	//	debug2 = debug = 1;
+	if ((argc>2) && (strcmp(argv[2], "-d") == 0))
+		debug = 1;
+	if ((argc>2) && (strcmp(argv[2], "-d2") == 0))
+		debug = 2;
 
 	if((infile=fopen(infilename,"rb"))==NULL)
 	{
@@ -164,12 +167,13 @@ int main(int argc, char *argv[])
 	// Read the length of this array ("blob")
 	fread(&Length, sizeof(long), 1, infile);
 	// allocate the space for save it.
-	code = (instruction*) malloc(sizeof(instruction) *(Length + 1));
+	code = (instruction*) malloc(sizeof(instruction) *(Length));
 	// Read the array
 	fread(code, sizeof(instruction), Length, infile);
 	fclose(infile);
 
-	printCodes(code, Length);
+	if (debug >= 1)
+		printCodes(code, Length);
 
 	//while(!feof(infile))
 	//{

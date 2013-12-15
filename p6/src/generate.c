@@ -67,8 +67,9 @@ void generate(PcodeGenerater this, ASTNode node)
 			break;
 		case KProgram:
 			{
-				this->dx = BLOCK_MARK_SIZE + 1;
-				gen(this, Int, 0, BLOCK_MARK_SIZE + 1);
+				//God dame the interpreter's stack is start from 1!!!
+				this->dx = BLOCK_MARK_SIZE;
+				gen(this, Int, 0, BLOCK_MARK_SIZE);
 
 				List vars = node->program->decls;
 				ListItr itr = newListItr(vars, 0);
@@ -80,7 +81,8 @@ void generate(PcodeGenerater this, ASTNode node)
 				generate(this, node->program->main);
 
 				// Jump to the entry address of main function
-				gen(this, jmp, 0, node->program->main->function->sym->addr);
+				gen(this, cal, 0, node->program->main->function->sym->addr);
+				gen(this, opr, 0, 0);
 			}
 			break;
 		case KMainFunction:

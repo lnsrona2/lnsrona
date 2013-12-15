@@ -24,6 +24,8 @@ digit		[0-9]+
 hex		0[Xx][0-9A-Fa-f]+
 ident		[A-Za-z_][A-Za-z_0-9]*	
 comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
+linecomment	"//"[^\n]+
+
 %%
 
 "while"		{
@@ -54,6 +56,7 @@ comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
 			return(ident);
 		}
 {comment}    	{ }
+{linecomment}    	{ }
 [\n]	   	{ 
 			yycolumn = 1;
 		}

@@ -30,6 +30,7 @@ void divide()
 		}
 	}
 }
+
 void gcd()
 {
 	int f,g;
@@ -44,7 +45,9 @@ void gcd()
 
 void main()
 {
-	x=m;y=n; multiply();
+	x=m;
+	y=n; 
+	multiply();
 	x=25; y=3; divide();
 	x=34; y=36; gcd();
 }

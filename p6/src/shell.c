@@ -11,14 +11,14 @@
 
 //SymbolTable symtab = NULL; //Strong defineation
 //ASTree ast = NULL;
-FILE* outfile = NULL;
-char infilename[256], outfilename[256];
-
 extern struct BitCodes codeGen(ASTree ast);
 extern ASTree parse();
 
 int main(int argc, char *argv [])
 {
+
+	FILE* outfile = NULL;
+	char infilename[256], outfilename[256];
 
 	// Section of parsing command line arguments
 	// Added by Yupeng
@@ -40,14 +40,14 @@ int main(int argc, char *argv [])
 				else
 				{
 					strcpy(outfilename, argv[k]);
-					outfile = fopen(outfilename, "w");
+					outfile = fopen(outfilename, "wb");
 				}
 			}
 		}
 	}
 	if (!flag) printf("Warning : haven't decide a source file, system will take the standard input as source.\n");
 	if (outfile == NULL)
-		outfile = fopen("a.o", "w");
+		outfile = fopen("a.o", "wb");
 	// End of Arguments parsing
 
 	printf("Parsing ...\n");
@@ -65,7 +65,7 @@ int main(int argc, char *argv [])
 	printCodes(generator->code, generator->cx);
 	result = fwrite(&generator->cx, sizeof(long), 1, outfile);
 	result = fwrite(generator->code, sizeof(instruction), generator->cx, outfile);
-	//fclose(outfile);
+	fclose(outfile);
 	
 	//freopen(outfilename, "r", outfile);
 
