@@ -1,19 +1,34 @@
-%{
-#include <stdio.h>
-#include <math.h>
-#include "common.h"
-//extern SymbolTable ast->symTab;
-static ASTree ast = NULL;
+%require "2.4.1"
+%skeleton "lalr1.cc"
+%defines 
+%define namespace "C1"
+%define parser_class_name "BisonParser"
+%parse-param { C1::FlexScanner &scanner }
+%lex-param   { C1::FlexScanner &scanner }
 
-extern int yylex();
-int yyerror(char *message);
+%code requires {
+	// Forward-declare the Scanner class; the Parser needs to be assigned a 
+	// Scanner, but the Scanner can't be declared without the Parser
+	namespace C1 {
+		class FlexScanner;
+	}
+}
 
-%}
+%code {
+	#include <stdio.h>
+	#include <math.h>
+	#include "common.h"
+	static ASTree ast = NULL;
+	// Prototype for the yylex function
+	static int yylex(C1::BisonParser::semantic_type * yylval, C1::FlexScanner &scanner);
+}
+
 %union{
 	int ival;
 	char *name;
 	struct astnode *node;
 }
+
 %locations
 
 %token number ident
@@ -316,6 +331,19 @@ Exp     	: number
 
 %%
 
+// We have to implement the error function
+void C1::BisonParser::error(const C1::BisonParser::location_type &loc, const std::string &msg) {
+	std::cerr << "Error: " << msg << std::endl;
+}
+
+// Now that we have the Parser declared, we can declare the Scanner and implement
+// the yylex function
+#include "WaffleshopScanner.h"
+static int yylex(C1::BisonParser::semantic_type * yylval, C1::FlexScanner &scanner) {
+	return scanner.yylex(yylval);
+}
+
+/*
 int yyerror(char *message)
 {
 	printf("%s\n",message);
@@ -328,4 +356,4 @@ ASTree parse()
 	ast = tree;
 	yyparse();
 	return tree;
-}
+} */

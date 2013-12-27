@@ -39,16 +39,18 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>E:\Program Files %28x86%29\GnuWin32\include;include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
     <TargetName>c0</TargetName>
+    <LibraryPath>E:\Program Files %28x86%29\GnuWin32\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <IncludePath>E:\Program Files %28x86%29\GnuWin32\include;include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
     <TargetName>c0</TargetName>
+    <LibraryPath>E:\Program Files %28x86%29\GnuWin32\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -79,8 +81,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\ast.c" />
-    <ClCompile Include="src\c0ast.lex.c" />
-    <ClCompile Include="src\c0ast.tab.c" />
+    <ClCompile Include="src\c1.lex.cpp" />
+    <ClCompile Include="src\c1.tab.cpp" />
     <ClCompile Include="src\error.c" />
     <ClCompile Include="src\generate.c" />
     <ClCompile Include="src\list.c" />
@@ -89,15 +91,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ast.h" />
+    <ClInclude Include="include\c1.tab.hpp" />
+    <ClInclude Include="include\cparser.h" />
+    <ClInclude Include="include\cscanner.h" />
+    <ClInclude Include="include\location.hh" />
     <ClInclude Include="include\pcode.h" />
     <ClInclude Include="include\common.h" />
     <ClInclude Include="include\errcfg.h" />
     <ClInclude Include="include\error.h" />
     <ClInclude Include="include\opcfg.h" />
     <ClInclude Include="include\pcodegen.h" />
+    <ClInclude Include="include\position.hh" />
+    <ClInclude Include="include\stack.hh" />
     <ClInclude Include="include\symtab.h" />
     <ClInclude Include="include\util.h" />
-    <ClInclude Include="src\c0ast.tab.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

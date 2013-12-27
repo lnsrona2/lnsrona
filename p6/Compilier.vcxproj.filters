@@ -13,15 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Generated Source Files">
+      <UniqueIdentifier>{3e97e327-cb82-4194-9859-05852ef7091e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ast.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\c0ast.lex.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\c0ast.tab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\error.c">
@@ -39,15 +36,18 @@
     <ClCompile Include="src\symtab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\c1.lex.cpp">
+      <Filter>Generated Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\c1.tab.cpp">
+      <Filter>Generated Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\c0ast.tab.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\errcfg.h">
@@ -70,6 +70,24 @@
     </ClInclude>
     <ClInclude Include="include\pcodegen.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cscanner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\cparser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\location.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\position.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stack.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\c1.tab.hpp">
+      <Filter>Generated Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

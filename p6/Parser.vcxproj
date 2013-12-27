@@ -62,8 +62,8 @@
     <Text Include="readme.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="config\c0ast.lex" />
-    <None Include="config\c0ast.y" />
+    <None Include="config\c1.lex" />
+    <None Include="config\c1.y" />
     <None Include="Makefile" />
     <None Include="Makefile.Windows.mak" />
   </ItemGroup>

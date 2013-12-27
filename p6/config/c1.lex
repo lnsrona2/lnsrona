@@ -4,20 +4,10 @@
  */
 
 %{
-#include "c0ast.tab.h"
-#include "common.h"
-#include "string.h"
-#include "stdlib.h"
-/* handle locations */
-int yycolumn = 1;
-
-#define YY_USER_ACTION yylloc.first_line = yylloc.last_line = yylineno; \
-    yylloc.first_column = yycolumn; yylloc.last_column = yycolumn+yyleng-1; \
-    yycolumn += yyleng;
+#include "cscanner.h"
 %}
 
-%option noyywrap
-%option yylineno
+%option nodefault yyclass="FlexScanner" noyywrap c++ yylineno
 
 octal		0[0-7]+	
 digit		[0-9]+
