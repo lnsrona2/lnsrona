@@ -80,10 +80,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ast.cpp" />
     <ClCompile Include="src\ast.c" />
     <ClCompile Include="src\c1.lex.cpp" />
     <ClCompile Include="src\c1.tab.cpp" />
-    <ClCompile Include="src\error.c" />
+    <ClCompile Include="src\error.cpp" />
     <ClCompile Include="src\generate.c" />
     <ClCompile Include="src\list.c" />
     <ClCompile Include="src\shell.c" />
@@ -94,6 +95,7 @@
     <ClInclude Include="include\c1.tab.hpp" />
     <ClInclude Include="include\cparser.h" />
     <ClInclude Include="include\cscanner.h" />
+    <ClInclude Include="include\declaration_context.h" />
     <ClInclude Include="include\location.hh" />
     <ClInclude Include="include\pcode.h" />
     <ClInclude Include="include\common.h" />
@@ -104,6 +106,7 @@
     <ClInclude Include="include\position.hh" />
     <ClInclude Include="include\stack.hh" />
     <ClInclude Include="include\symtab.h" />
+    <ClInclude Include="include\type.h" />
     <ClInclude Include="include\util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

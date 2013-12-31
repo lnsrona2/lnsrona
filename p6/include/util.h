@@ -17,11 +17,11 @@
 #define NEW0(p) memset(NEW(p), 0, sizeof *(p))
 #endif
 
-#ifdef DEBUG
-#define debug(a) printf("%s", a)
-#else
-#define debug(a)
-#endif 
+//#ifdef DEBUG
+//#define debug(a) printf("%s", a)
+//#else
+//#define debug(a)
+//#endif 
 
 typedef struct lnode{
 	void	*item;	// pointer to the item.	

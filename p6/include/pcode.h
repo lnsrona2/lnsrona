@@ -7,7 +7,7 @@ enum fct {
 // operator kinds
 // You could add more kinds of error messages into op.h 
 enum OPERATORS {
-#define opxx(a, b) OP_##a,
+#define opxx(a, b, c) OP_##a,
 #include "opcfg.h"
 #undef opxx
 	OPLAST

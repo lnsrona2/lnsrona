@@ -5,8 +5,8 @@ SRC		= src
 BIN		= bin
 
 CC       = ml $(CINC)
-LEX		= flex -i -I
-YACC	= bison -v
+LEX		= win_flex -i -I
+YACC	= win_bison -v
 DEL		= del
 MOV		= move /y
 

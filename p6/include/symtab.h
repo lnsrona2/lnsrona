@@ -9,6 +9,8 @@
 *	Use pushTable when you get inside a new scope
 *	And popTable when you leave a scope
 */
+
+#pragma once
 #ifndef _SYMTAB_H
 #define _SYMTAB_H
 
