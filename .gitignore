@@ -155,8 +155,20 @@ $RECYCLE.BIN/
 # Mac desktop service store files
 .DS_Store
 
-# Generated file from Flex and Bision
+# Generated file from Flex and Bison
 c0ast.lex.c
 c0ast.tab.c
 c0ast.tab.h
 c0ast.output
+
+# Generated file from Flex & Bison in C++ Config
+c1.lex.cpp
+c1.tab.cpp
+c1.tab.hpp
+c1.output
+position.hh
+location.hh
+stack.hh
+
+# Intermediate files for testing
+p6/test/*.o
