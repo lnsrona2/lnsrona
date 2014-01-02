@@ -1,0 +1,32 @@
+Test case 1
+	T:	ccbbcbaabcccbabc
+	P:	bcaa
+	STL : -1
+	K-M-P : -1
+	Horspool : -1
+	Karp-Rabin : -1
+
+Test case 2
+	T:	aacabbaccccacaabcbbacacaacabcbccbaabcabbbccaabbcbbcacabcaaacacab
+	P:	acbc
+	STL : -1
+	K-M-P : -1
+	Horspool : -1
+	Karp-Rabin : -1
+
+Test case 3
+	T:	cbaacbcbcaacacbaaaaccacccbaacaaabacaccabcbcbabbbacbabcaaccbccacbcbacacacbcaccabaccbccbaaaaabbacbacacbccbabcaacbbcccaccbcbacbacbcabaababccaaaacccccbbaabbccbcccabbacacaacbcccbaaacacabccabcccccabcaaaabbbcbbbaabccacccabacbcbbcbabacabbbbbbabbcabcbcbcaabcbcccbab
+	P:	accc
+	STL : 21
+	K-M-P : 21
+	Horspool : 21
+	Karp-Rabin : 21
+
+Test case 4
+	T:	cabbabbbacbbacbcccaaacaccababcccbcaccbcbcaacacbccbacbccbccaccbcbcabbbccabaacaccbcccbccaccbbcbcccbbccbacbcbcbbcbabcbacbbababcbcacbaaabbabacabbcbccbaccbbcbbbbcbbaacabaccbcbccabbbbccaabcbbcaccbbcaaaabababbabbbacaaabaabaccbcaaccaabcbbaccacbabbcccaccbcabcacabbaacccacbbabbabcccababcacababacccbacacabcbcccbabccccabcbaabbaaabaccccabbababaacabbcacbacacbbcbaabaabbbbaabcaaccbacbbaacacabcabacbaabcaabbccccccacbccccaabcbabaabcbbaaacccccabaaaabcaabbccccaccbacababbaccacababbacbbaaccbbacbbccaccaccabccbababbbacbacbaabcbbcaacaababbabbaacabcaabccabacbbbbcabcccacbacbababacaccabcaacbaabccaccacbccaabbcbaababaacaaaaaacccbcbbabbbbbcbcacbababacbbabcbabbcacbcaccbcaaabacaaababacaababcaccbababcabcababbaababcbabbcabbacccbbbccacbacccbccaabcaabcbbbccbaccbabcaacacaabababacabbcbbaccacbbbcbabccaccabcacabaacbbacbaccaabcaaaaacccabbaabaabcbacccbcbabaccbcbaabaaacabbaababbbbbcabaaaaaabacbbaabbaabbcacabbcbbcaabbcbaaaaacbabcaacaaacaacbcccbcbababbcbcacbcaaccaabbbbbacabaaaabcaababbccbccbccbbababbbaacbacccaacbcbccabcccaaabaacbbcacacaaabccccbcbbaacacaaccb
+	P:	aacb
+	STL : 563
+	K-M-P : 563
+	Horspool : 563
+	Karp-Rabin : 563
+

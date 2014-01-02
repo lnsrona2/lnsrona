@@ -33,6 +33,7 @@
 	Stmt*	stmt;
 	Type*	type;
 	Decl*	decl;
+	void*	list;
 }
 
 %locations
@@ -83,6 +84,128 @@
 %type <node> Relation Exp InitExpr
 
 %%
+
+TranslationUnit
+	: TranslateUnit ExtendDeclaration
+	: ExtendDeclaration
+	;
+
+ExtendDeclaration
+	: FunctionDefination
+	| Declaration
+	| TypedefDeclaration
+	;
+
+Declaration
+	: StorageClassSpecifier TypeQulifierSpecifierList DeclaratorList SEMICOLON
+	;
+
+TypedefDeclaration
+	: TYPEDEF TypeQulifierSpecifierList DeclaratorList SEMICOLON
+	{}
+	;
+
+DeclaratorList
+	: DeclaratorList COMMA Declarator
+	{
+		$$ = $1;
+		auto list = static_cast<std::list<Declarator*>*>($$);
+		list->push_back($3);
+	}
+	| Declarator
+	{
+		auto list = new std::list<Declarator*>();
+		lst->push_back($1);
+		$$ = list;
+	}
+	;
+
+Declarator
+	: Pointer Declarator
+	| LPAREN Declarator RPAREN
+	| Declarator LBRACKET Expr RBRACKET
+	| Declarator LBRACKET RBRACKET
+	| Declarator LPAREN ParameterList RPAREN
+	| Declarator LPAREN RPAREN
+	| IDENTIFIER
+	;
+
+InitDeclaratorList
+	: InitDeclaratorList COMMA InitDeclarator
+	{
+		$$ = $1;
+		auto list = static_cast<std::list<InitDeclarator*>*>($$);
+		list->push_back($3);
+	}
+	| InitDeclarator
+	{
+		auto list = new std::list<InitDeclarator*>();
+		lst->push_back($1);
+		$$ = list;
+	}
+	;
+
+InitDeclarator
+	: Declarator
+	| Declarator ASGN Initializer
+	;
+
+Initializer
+	: Expr
+	| LBRACE InitializerList RBRACE
+	| LBRACE InitializerList COMMA RBRACE
+	;
+
+InitializerList
+	: InitializerList COMMA Initializer
+	| Initializer
+	;
+
+AbstractDeclarator
+	: Pointer Declarator
+	| Pointer
+	| LPAREN Declarator RPAREN
+	| Declarator LBRACKET Expr RBRACKET
+	| LBRACKET Expr RBRACKET
+	| Declarator LBRACKET RBRACKET
+	| Declarator LPAREN ParameterList RPAREN
+	| LPAREN ParameterList RPAREN
+	| Declarator LPAREN RPAREN
+	| LPAREN RPAREN
+	;
+
+ParameterList
+	: ParameterList COMMA ParameterDeclaration
+	| ParameterDeclaration
+	;
+
+ParameterDeclaration
+	: TypeQualifierSpecifierList Declarator
+	| TypeQualifierSpecifierList AbstractDeclarator
+	| TypeQualifierSpecifierList
+	;
+
+Pointer
+	: Pointer MULT TypeQualifierList
+	| Pointer
+	;
+
+TypeQualifierList
+	: TypeQualifierList TypeQualifier
+	| 
+	; 
+	
+TypeQualifierSpecifierList
+	: TypeQualifierSpecifierList TypeSpecifier
+	| TypeQualifierSpecifierList TypeQualifier
+	| TypeSpecifier
+	| TypeQualifier
+	;
+
+FunctionDefination
+	: StorageClassSpecifier TypeQualifierSpecifierList Declarator ConmpoundStatement
+	;
+
 TypeSpecifier
 	: VOID
 	| INT

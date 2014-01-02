@@ -181,6 +181,14 @@ namespace C1
 			const char Value() const;
 		};
 
+		class Initializer : public Expr
+		{
+			const Expr* Value() const;
+			const std::list<Initializer*>& List() const;
+			const bool IsList() const;
+			const bool IsValue() const;
+		};
+
 		class Stmt : Node
 		{};
 		class CompoundStmt : public Stmt
@@ -217,9 +225,14 @@ namespace C1
 		//	virtual std::list<Node*> ParameterList() const;
 		//};
 
-		class Declarator : Node
+		class Declarator : public Node
 		{
-			virtual ~Declarator() = 0;
+			bool IsAbstract() const;
+		};
+
+		class InitDeclarator : public Declarator
+		{
+			const Initializer* Initializer() const;
 		};
 
 		class ParenDeclartor : Declarator
@@ -235,6 +248,7 @@ namespace C1
 		class PointerDeclarator : Declarator
 		{
 			const Declarator* Base() const;
+			unsigned QualifierMask() const;
 		};
 
 		class ArrayDeclartor : Declarator
