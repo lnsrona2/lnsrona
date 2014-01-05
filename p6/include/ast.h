@@ -9,20 +9,35 @@
 #include <memory>
 #include <array>
 #include "location.hh"
-#include "declaration_context.h"
+#include "declaration.h"
+#include "operators.h"
 
 namespace C1
 {
 	class Type;
 	class DeclContext;
 
-	enum OperatorsEnum
-	{
-
-	};
 
 	namespace AST
 	{
+		// Storage nesseary "global" context value for building AST
+		struct ASTContext
+		{
+		public:
+			// The current translation unit
+			TranslationUnit* CurrentTranslationUnit;
+			// Storage the current working scope , the comming declaration is stored in it
+			DeclContext*	CurrentDeclContext;
+			// The type context object for creating and retriving predefined types
+			TypeContext*	TypeContext;
+			// The name of the current working source file
+			std::string		FileName;
+			// The input stream for source file
+			std::istream&	SourceFile;
+			// Storage the qualified type for declarations.
+			QualType		CurrentQualifiedType;
+			
+		};
 		// Represent a literal entity in the code document's AST
 		// We have TypeSpecifier Here but not the true underhood Type here.
 		class Node
@@ -34,24 +49,36 @@ namespace C1
 			Node(const LocationType& location);
 
 			const LocationType& Location() const;
+			LocationType& Location();
 			void SetLocation(const LocationType&);
 
 			const Node* Parent() const;
 			Node* Parent();
+			void SetParent(Node*);
 
 			virtual const std::list<const Node*> Children() const = 0;
 			virtual std::list<Node*> Children() = 0;
-
 
 			virtual std::string ToString() const = 0;
 
 			virtual ~Node() = 0;
 		private:
 			LocationType m_location;
+			Node* m_parent;
 		};
 
-		class TranslationUnit : public Node
-		{};
+		class Comment : public Node
+		{
+			const std::string &Content() const;
+			std::string &Content();
+		};
+
+		class TranslationUnit : public Node , public DeclContext
+		{
+			const std::string& Name() const;
+			std::list<Declaration*>& Declarations();
+			const std::list<Declaration*>& Declarations() const;
+		};
 
 		enum ExprValueType
 		{
@@ -65,6 +92,9 @@ namespace C1
 		public:
 			virtual const Type* ReturnType() const = 0;
 			virtual ExprValueType ValueType() const = 0;
+
+			template <typename value_type>
+			value_type Evaluate() const;
 		};
 
 		class CallExpr : public Expr
@@ -88,7 +118,7 @@ namespace C1
 
 		class DeclRefExpr : public Expr
 		{
-			const Declarations::Declaration* Declaration() const;
+			const Declaration* Declaration() const;
 		};
 
 		class UnaryExpr : public Expr
@@ -104,6 +134,7 @@ namespace C1
 			const std::array<Expr*,2>& SubExprs() const;
 			const Expr* LeftSubExpr() const;
 			const Expr* RightSubExpr() const;
+			const OperatorsEnum Operator() const;
 		private:
 			std::array<Expr*, 2> m_SubExprs;
 		};
@@ -112,6 +143,16 @@ namespace C1
 		{
 			const Expr* Value() const;
 			const Expr* Assignee() const;
+		};
+
+		class IndexExpr : public BinaryExpr
+		{
+
+		};
+
+		class CompoundAssignExpr : public AssignExpr
+		{
+			const OperatorsEnum Operator() const;
 		};
 
 		class ArithmeticExpr : public BinaryExpr
@@ -147,7 +188,7 @@ namespace C1
 		public:
 			const Expr* SourceExpr() const;
 			const Type* TargetType() const;
-			const Functional* ConversionFunction() const;
+			const Node* ConversionFunction() const;
 		};
 		class ImplicitCastExpr : CastExpr
 		{
@@ -157,7 +198,7 @@ namespace C1
 		class ExplicitCastExpr : CastExpr
 		{
 		public:
-			ExplicitCastExpr(Expr* source_expr, const Type* target_type, const Functional* conversion_function = nullptr);
+			ExplicitCastExpr(Expr* source_expr, const Type* target_type, const Node* conversion_function = nullptr);
 		};
 
 		class StringLiteral : public Expr
@@ -204,17 +245,31 @@ namespace C1
 		{
 			const Expr* ReturnExpr() const;
 		};
-		class WhileStmt : public Stmt
+
+		class IterationStmt : public Stmt
 		{
-			const Expr* Condition() const;
 			const Stmt* Action() const;
 		};
+
+		class WhileStmt : public IterationStmt
+		{
+			const Expr* Condition() const;
+		};
+
+		class ForStmt : public IterationStmt
+		{
+			const Stmt* Initializer() const;
+			const Expr* Condition() const;
+			const Expr* PostAction() const;
+		};
+
 		class IfStmt : public Stmt
 		{
 			const Expr* Condition() const;
 			const Stmt* Then() const;
 			const Stmt* Else() const;
 		};
+
 		class VarDeclStmt : public Stmt
 		{};
 		//class Variable : Node
@@ -260,14 +315,7 @@ namespace C1
 		class FunctionalDeclarator : Declarator
 		{
 			const Declarator* Base() const;
-			const std::list<Declarator*> ParameterList() const;
-
-			//int(*foo[3])(int a);
-			//void boo()
-			//{
-			//	foo[0] = nullptr;
-			//	(*foo[0])(1);
-			//}
+			const std::list<ParameterDeclaration*> ParameterList() const;
 		};
 
 	}

@@ -84,6 +84,7 @@
     <ClCompile Include="src\ast.c" />
     <ClCompile Include="src\c1.lex.cpp" />
     <ClCompile Include="src\c1.tab.cpp" />
+    <ClCompile Include="src\driver.cpp" />
     <ClCompile Include="src\error.cpp" />
     <ClCompile Include="src\generate.c" />
     <ClCompile Include="src\list.c" />
@@ -92,11 +93,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ast.h" />
+    <ClInclude Include="include\ast_context.h" />
     <ClInclude Include="include\c1.tab.hpp" />
     <ClInclude Include="include\cparser.h" />
     <ClInclude Include="include\cscanner.h" />
-    <ClInclude Include="include\declaration_context.h" />
+    <ClInclude Include="include\declaration.h" />
+    <ClInclude Include="include\driver.h" />
     <ClInclude Include="include\location.hh" />
+    <ClInclude Include="include\operators.h" />
     <ClInclude Include="include\pcode.h" />
     <ClInclude Include="include\common.h" />
     <ClInclude Include="include\errcfg.h" />

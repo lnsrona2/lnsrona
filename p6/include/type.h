@@ -8,6 +8,16 @@
 namespace C1
 {
 	class DeclContext;
+	class RecordDeclaration;
+
+	enum StorageClassSpecifierEnum
+	{
+		SCS_EXTERN,
+		SCS_STATIC,
+		SCS_AUTO,
+		SCS_REGISTER,
+		SCS_NONE,
+	};
 
 	enum TypeQualifierEnum
 	{
@@ -20,7 +30,6 @@ namespace C1
 	{
 	public:
 		virtual std::string ToString() const;
-		virtual bool IsCompleted() const;
 		virtual size_t Size() const;
 		virtual size_t Alignment() const;
 		virtual ~Type();
@@ -28,6 +37,16 @@ namespace C1
 
 	class QualType
 	{
+		QualType(Type *pType,int qualifiers_mask)
+		: m_type(pType), m_qulifier_mask(qualifiers_mask)
+		{
+		}
+
+		int Qualifiers() const
+		{
+			return m_qulifier_mask;
+		}
+
 		bool IsConst() const
 		{
 			return m_qulifier_mask & TypeQualifierEnum::CONST;
@@ -41,24 +60,34 @@ namespace C1
 			return m_qulifier_mask & TypeQualifierEnum::VOLATILE;
 		}
 
-		std::string ToString() const
+
+		int AddConst()
 		{
-			return QulifierMaskToString(m_qulifier_mask) + m_type->ToString();
+			m_qulifier_mask |= TypeQualifierEnum::CONST;
 		}
 
-		size_t Size() const
+		int RemoveConst()
 		{
-			return m_type->Size();
+			m_qulifier_mask &= ~TypeQualifierEnum::CONST;
 		}
 
-		size_t Alignment() const
-		{
-			return m_type->Alignment();
+		inline const Type &operator*() const{
+			return *m_type;
 		}
 
-		const Type* CanonicalType() const;
+		inline const Type *operator->() const{
+			return m_type;
+		}
 
-		Type* CanonicalType();
+		inline Type &operator*() {
+			return *m_type;
+		}
+
+		inline Type *operator->() {
+			return m_type;
+		}
+
+	protected:
 
 		static const std::string& QulifierMaskToString(unsigned int qulifier_mask)
 		{
@@ -71,20 +100,19 @@ namespace C1
 
 	private:
 		Type* m_type;
-		TypeQualifierEnum m_qulifier_mask;
+		int m_qulifier_mask;
 	};
 
 	class TypeContext
 	{
 		const Type*			NewTypeFromTypeSpecifier();
-		const Type*			NewTypeFromSpecifierQualifierList();
-		const Type*			NewTypeFromDeclarator();
+		const QualType*		NewTypeFromSpecifierQualifierList();
+		//const Type*			NewTypeFromDeclarator();
 
-		const PointerType*	NewPointerType();
-		const ArrayType*	NewArrayType();
+		const PointerType*	NewPointerType(QualType base);
+		const ArrayType*	NewArrayType(QualType base , size_t size);
 		const StructType*	NewStructType();
 		const UnionType*	NewUnionType();
-		const QualType*		NewQualType(Type* base_type, unsigned qualifier_mask);
 
 		const IntegerType*	Char() const;
 		const IntegerType*	Short() const;
@@ -100,22 +128,44 @@ namespace C1
 
 	class PointerType : Type
 	{
-		const Type * Base() const;
+	public:
+		PointerType(QualType base)
+		: m_base(base)
+		{
+		}
+		const QualType Base() const;
+	private:
+		QualType m_base;
 	};
 	class ArrayType : Type
 	{
-		const Type * Base() const;
+	public:
+		ArrayType(QualType base , size_t size)
+			: m_base(base), m_size(size)
+		{
+		}
+		const QualType Base() const;
 		int Length() const;
+	private:
+		QualType m_base;
+		size_t m_size;
 	};
-	class StructType : Type
+
+	class RecordType : Type
 	{
-		const DeclContext* Context() const;
-		const std::list<Type*> Elements() const;
+		const RecordDeclaration* Declaration() const;
+		RecordDeclaration* Declaration();
+
+	protected:
+		RecordDeclaration* m_declaration;
 	};
-	class UnionType : Type
+
+	class StructType : RecordType
 	{
-		const DeclContext* Context() const;
-		const std::list<Type*> Elements() const;
+	};
+
+	class UnionType : RecordType
+	{
 	};
 	class BasicType : Type
 	{};

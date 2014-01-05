@@ -17,12 +17,6 @@ unsigned	{digit}[uU]
 decimal		[{digit}]?"."{digit}[fFdD]
 sci_float	{decimal}[eE]["+""-"]?{digit}
 ident		[A-Za-z_][A-Za-z_0-9]*
-char		\'([^\'\n])+\'
-bad_char	\'([^\'\n])+
-string		\"([^\"\n])*\"
-bad_string	\"([^\"\n])+\"
-comment		"/*"([^*]|(\*+[^*/]))*\**"*/"
-linecomment	"//"[^\n]+
 
 %{
 #define yyterminate() return token::eof
@@ -38,51 +32,91 @@ typedef C1::BisonParser::token token;
 	yylloc->step ();
 %}
 {comment}    	{
-			yylloc->lines (yyleng);
-			yylloc->step (); 
-		}
-{linecomment}    	{
-			yylloc->lines (yyleng);
-			yylloc->step (); 
-		}
-[\n]	   	{ 
-			yylloc->lines (yyleng);
-			yylloc->step (); 
-		}
-[\t ]*     	{ 
-			yylloc->step (); 
-		}
-"while"		{
-		  return(token::WHILE);
-		}
-"const"		{ return(token::CONST);}
-"if"		{ return(token::IF);}
-"int"    	{ return(token::INT);}
-"void"		{ return(token::VOID);}
-"main"		{ return(token::MAIN);}
+					yylloc->lines (yyleng);
+					yylloc->step (); 
+				}
+{linecomment} 	{
+					yylloc->lines (yyleng);
+					yylloc->step (); 
+				}
+[\n] 			{ 
+					yylloc->lines (yyleng);
+					yylloc->step (); 
+				}
+[\t ]*     		{ 
+					yylloc->step (); 
+				}
 
-{octal}	     	{ 
-			yylval->ival = strtol(yytext,NULL,8);//atol(yytext);
-			return(token::NUMBER);
-		}
-{digit}    	{ 
-			yylval->ival = strtol(yytext,NULL,10);//atol(yytext);
-			return(token::NUMBER);
-		}
-{hex}	     	{ 
-			yylval->ival = strtol(yytext,NULL,16);//atol(yytext);
-			return(token::NUMBER);
-		}
-{ident} 	{ 
-			yylval->name = (char*)malloc(yyleng+1);
-			yylval->name[yyleng] = '\0';
-			strncpy(yylval->name,yytext,yyleng);
-			return(token::IDENTIFIER);
-		}
+"auto"			{ return(token::AUTO); }
+"break"			{ return(token::BREAK); }
+"case"			{ return(token::CASE); }
+"char"			{ return(token::CHAR); }
+"continue"		{ return(token::CONTINUE); }
+"default"		{ return(token::DEFAULT); }
+"do"			{ return(token::DO); }
+"double"		{ return(token::DOUBLE); }
+"else"			{ return(token::ELSE); }
+"enum"			{ return(token::ENUM); }
+"extern"		{ return(token::EXTERN); }
+"float"			{ return(token::FLOAT); }
+"for"			{ return(token::FOR); }
+"goto"			{ return(token::GOTO); }
+"if"			{ return(token::IF); }
+"int"			{ return(token::INT); }
+"long"			{ return(token::LONG); }
+"register"		{ return(token::REGISTER); }
+"return"		{ return(token::RETURN); }
+"short"			{ return(token::SHORT); }
+"signed"		{ return(token::SIGNED); }
+"sizeof"		{ return(token::SIZEOF); }
+"static"		{ return(token::STATIC); }
+"struct"		{ return(token::STRUCT); }
+"switch"		{ return(token::SWITCH); }
+"typedef"		{ return(token::TYPEDEF); }
+"union"			{ return(token::UNION); }
+"unsigned"		{ return(token::UNSIGNED); }
+"void"			{ return(token::VOID); }
+"while"			{ return(token::WHILE); }
+"restrict"		{ 
+					yyval->ival = C1::TypeQualifierEnum::RESTRICT; 
+					return(token::RESTRICT);
+				}
+"const"			{
+					yyval->ival = C1::TypeQualifierEnum::Const; 
+					return(token::CONST);
+				}
+"volatile"		{
+					yyval->ival = C1::TypeQualifierEnum::VOLATILE; 
+					return(token::VOLATILE);
+				}
+
+{octal} 		{ 
+						yylval->ival = strtol(yytext,NULL,8);//atol(yytext);
+						return(token::INT_LITERAL);
+				}
+{digit}    		{ 
+					yylval->ival = strtol(yytext,NULL,10);//atol(yytext);
+					return(token::INT_LITERAL);
+				}
+{hex}		   	{ 
+					yylval->ival = strtol(yytext,NULL,16);//atol(yytext);
+					return(token::INT_LITERAL);
+				}
+{ident}	 		{ 
+					yylval->identifier = new std::string(yytext);
+					auto decl = pContext->CurrentDeclContext()->Lookup(*yylval->identifier);
+					if (decl){
+						if (is<TypeDeclaration*>(decl))
+							return token::TypeIdentifier;
+						else
+							return token::ObjectIdentifier;
+					} else
+					return(token::NewIdentifier);
+				}
 "="		{ 
 			yylval->ival = OP_ASGN;
 			return(token::ASGN);
-		}
+		}INT_LITERAL
 "<"		{ 
 			yylval->ival = OP_LT;
 			return(token::LSS);

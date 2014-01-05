@@ -6,17 +6,43 @@
 %parse-param { C1::FlexScanner &scanner }
 %lex-param   { C1::FlexScanner &scanner }
 
+%define parse.assert
+%define parse.trace
+%define parse.error verbose
+
+
 %code requires {
+	#include "operators.h"
+	#include "type.h"
+	#include "declaration.h"
+	#include "ast.h"
 	// Forward-declare the Scanner class; the Parser needs to be assigned a 
 	// Scanner, but the Scanner can't be declared without the Parser
 	namespace C1 {
 		class FlexScanner;
 	}
-	#include <stdio.h>
-	#include <math.h>
-	#include "common.h"
-	static ASTree ast = NULL;
+
 }
+
+
+%union{
+	int					ival;
+	OperatorsEnum		operator;
+	Expr*				expr;
+	Stmt*				stmt;
+	QualType*			qual_type;
+	Type*				type;
+	Node*				node;
+	Declarator*			declarator;
+	std::list<void*>*	list;
+	std::list<Declarator*>*		declarator_list;
+	std::list<Declaration*>*	decl_list;
+	std::list<Stmt*>*	stmt_list;
+	std::list<Expr*>*	expr_list;
+	std::list<int>*		int_list;
+	IdentifierInfo*		identifier;
+}
+
 
 %code {
 	// Prototype for the yylex function
@@ -27,82 +53,142 @@
 	}
 }
 
-%union{
-	int		ival;
-	Expr*	expr;
-	Stmt*	stmt;
-	Type*	type;
-	Decl*	decl;
-	void*	list;
-}
-
 %locations
 %token EOF
 %token WHILE IF ELSE FOR DO SWITCH GOTO
 %token BREAK RETURN CONTINUE CASE DEFAULT
-%token CONST VOLATILE RESTRICT STATIC EXTERN REGISTER
+%token CONST VOLATILE RESTRICT
+%token STATIC EXTERN AUTO REGISTER
 %token INT VOID FLOAT DOUBLE SIGNED UNSIGNED LONG CHAR SHORT
 %token STRUCT UNION ENUM
 %token TYPEDEF
-%token INTLITERAL FLOATLITERAL STRINGLITERAL
-%token IDENTIFIER
+%token INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%token NewIdentifier ObjectIdentifier TypeIdentifier
 %token COMMA SEMICOLON COLON QUESTION
 
-%token ASGN MULT_ASGN PLUS_ASGN DIV_ASGN MINUS_ASGN AND_ASGN OR_ASGN LSH_ASGN RSH_ASGN MOD_ASGN XOR_ASGN
-%token PLUS MINUS MULT DIV MOD
+%token ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN ANDAND_ASSIGN OROR_ASSIGN
+%token ADD SUB MUL DIV MOD
+%token ADDADD SUBSUB
 %token EQL NEQ LSS GTR LEQ GEQ
-%token LOGIC_NOT LOGIC_AND LOGIC_OR
-%token LSH RSH NOT AND OR
+%token NOT ANDAND OROR
+%token LSH RSH REVERSE AND OR XOR
 %token DOT ARROW
-%token SIZEOF
+%token SIZEOF CAST
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 
 %left NOELSE
 %left ELSE
-%right ASGN MULT_ASGN PLUS_ASGN DIV_ASGN MINUS_ASGN AND_ASGN OR_ASGN LSH_ASGN RSH_ASGN MOD_ASGN XOR_ASGN
+%left COMMA
+%right ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN
+%left OROR
+%left ANDAND
 %left OR
+%left XOR
 %left AND
-%left BITOR
-%left BITAND
 %left EQL NEQ
-%left GEQ GTR LSS LEQ
+%left LSS GTR LEQ GEQ
 %left LSH RSH
-%left PLUS MINUS
-%left MULT DIV MOD
-%left MEMBER
-%right NEG NOT ADDRESS DEREF BITNOT SIZEOF
+%left ADD SUB
+%left MUL DIV MOD
+%right POSITIVE NEGTIVE NOT REVERSE ADDRESS DEREF SIZEOF ADDADD SUBSUB CAST
+%left MEMBER RBRACKET RPAREN
 
-%type <expr> INTLITERAL FLOATLITERAL STRINGLITERAL
-%type <expr> Expr
-%type <type> Type
-%type <ival> AssignmentOperator PLUS MINUS MULT DIV MOD ASGN LT GT EQ LE NE BE
-%type <name> ident
+%type <int> CONST RESTRICT VOLATILE TypeQualifier TypeQualifierList
+%type <int> STATIC EXTERN AUTO REGISTER StorageClassSpecifier
+%type <int> STRUCT UNION RecordKeyword 
+%type <int> DeclaratorPointer
 
-%type <node> Program FunctionDecl FunctionDefine MainDefine
-%type <node> Decl Decls Vdecl VarList Cdecl ConstList
-%type <node> CompStat Statf Stat 
-%type <node> Relation Exp InitExpr
+%type <expr> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%type <expr> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
+%type <expr> Initializer
+
+%type <type> TypeSpecifier RecordSpecifier EnumSpecifier
+%type <qual_type> TypeExpr QualifiedTypeSpecifier
+
+%type <stmt> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
+
+%type <node> TranslationUnit 
+%type <decl> ExtendDeclaration ObjectDeclaration TypeDefination FunctionDefination
+%type <decl> ParameterDeclaration FieldDeclaration
+
+%type <declarator> Declarator DirectDeclarator AbstractDeclarator DirectAbstractDeclarator InitDeclarator FieldDeclarator Enumerator
+
+%type <idenifier> TypeIdentifier ObjectIdentifier NewIdentifier Identifier 
+
+%type <list> DeclaratorList EnumeratorList
+%type <initializer_list> InitializerList 
+%type <declarator_list> InitDeclaratorList FieldDeclaratorList
+%type <decl_list> ParameterList FieldDeclarationList
+%type <stmt_list> StmtList
+%type <expr_list> ArgumentList
+
+%type <operator> AssignOperator UnaryOperator
+%type <operator> ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN
+%type <operator> ADD SUB MUL DIV MOD
+%type <operator> ADDADD SUBSUB
+%type <operator> EQL NEQ LSS GTR LEQ GEQ
+%type <operator> NOT ANDAND OROR
+%type <operator> LSH RSH REVERSE AND OR XOR
+%type <operator> DOT ARROW
+%type <operator> SIZEOF
+
+
+
 
 %%
-
+%start TranslationUnit;
 TranslationUnit
-	: TranslateUnit ExtendDeclaration
-	: ExtendDeclaration
+	: TranslationUnit ExtendDeclaration
+	{
+		$$ = $1;
+		$$->AddDeclaration($2);
+	}
+	| ExtendDeclaration
+	{
+		$$ = context->TranslationUnit();
+		$$->AddDeclaration($1);
+	}
 	;
 
 ExtendDeclaration
 	: FunctionDefination
-	| Declaration
-	| TypedefDeclaration
+	{
+		$$ = $1;
+	}
+	| ObjectDeclaration
+	{
+		$$ = $1;
+	}
+	| TypeDefination
+	{
+		$$ = $1;
+	}
 	;
 
-Declaration
-	: StorageClassSpecifier TypeQulifierSpecifierList DeclaratorList SEMICOLON
+ObjectDeclaration
+	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList SEMICOLON
+	{
+		for (declarator : $3)
+		{
+			Declaration* decl;
+			if (isa<FunctionDeclarator>(declarator))
+				decl = new FunctionDeclaration($1,$2,declarator);
+			else
+				decl = new VariableDeclaration($1,$2,declarator);
+			current_context.add(decl);
+		}		
+	}
 	;
 
-TypedefDeclaration
-	: TYPEDEF TypeQulifierSpecifierList DeclaratorList SEMICOLON
-	{}
+TypeDefination
+	: TYPEDEF QualifiedTypeSpecifier DeclaratorList SEMICOLON
+	{
+		for (declarator : $3)
+		{
+			auto decl = new TypedefDeclaration($2,declarator);
+			current_context.add(decl);
+		}
+	}
 	;
 
 DeclaratorList
@@ -121,413 +207,949 @@ DeclaratorList
 	;
 
 Declarator
-	: Pointer Declarator
+	: DeclaratorPointer DirectDeclarator
+	{
+		$$ = new PointerDeclarator($1,$2);
+		$$->SetLocation(@$);
+	}
+	| DirectDeclarator
+	{
+		$$ = $1;
+	}
+	;
+
+DirectDeclarator
+	: Identifier
+	{
+		$$ = new IdentifierDeclarator($1);
+		$$->SetLocation(@$);
+	}
 	| LPAREN Declarator RPAREN
-	| Declarator LBRACKET Expr RBRACKET
-	| Declarator LBRACKET RBRACKET
-	| Declarator LPAREN ParameterList RPAREN
-	| Declarator LPAREN RPAREN
-	| IDENTIFIER
+	{
+		$$ = new ParenDeclarator($2);
+		$$->SetLocation(@$);
+	}
+	| DirectDeclarator LBRACKET ConstantExpr RBRACKET
+	{
+		$$ = new ArrayDeclarator($1,$3);
+		$$->SetLocation(@$);
+	}
+	| DirectDeclarator LBRACKET RBRACKET
+	{
+		$$ = new ArratDeclarator($1,nullptr);
+		$$->SetLocation(@$);
+	}
+	| DirectDeclarator LPAREN ParameterList RPAREN
+	{
+		$$ = new FunctionalDeclarator($1,$3);
+		$$->SetLocation(@$);
+	}
+	| DirectDeclarator LPAREN RPAREN
+	{
+		$$ = new FunctionalDeclarator($1,nullptr);
+		$$->SetLocation(@$);
+	}
 	;
 
 InitDeclaratorList
 	: InitDeclaratorList COMMA InitDeclarator
 	{
 		$$ = $1;
-		auto list = static_cast<std::list<InitDeclarator*>*>($$);
-		list->push_back($3);
+		$$->push_back($3);
 	}
 	| InitDeclarator
 	{
-		auto list = new std::list<InitDeclarator*>();
-		lst->push_back($1);
-		$$ = list;
+		$$ = new std::list<Declarator*>();
+		$$->push_back($1);
 	}
 	;
 
 InitDeclarator
 	: Declarator
-	| Declarator ASGN Initializer
+	{
+		$$ = $1;
+	}
+	| Declarator ASSIGN Initializer
+	{
+		$$ = new InitDeclarator($1,$3);
+		$$->SetLocation(@$);
+	}
 	;
 
 Initializer
-	: Expr
+	: ConstantExpr
+	{
+		$$ = new Initializer($1);
+	}
 	| LBRACE InitializerList RBRACE
+	{
+		$$ = new Initializer($2);
+		$$->SetLocation(@$);
+	}
 	| LBRACE InitializerList COMMA RBRACE
+	{
+		$$ = new Initializer($2);
+		$$->SetLocation(@$);
+	}
 	;
 
 InitializerList
 	: InitializerList COMMA Initializer
+	{
+		$$ = $1;
+		$$->push_back($1);
+	}
 	| Initializer
+	{
+		$$ = new std::list<Initializer*>();
+		$$->push_back($1);
+	}
 	;
 
 AbstractDeclarator
-	: Pointer Declarator
-	| Pointer
-	| LPAREN Declarator RPAREN
-	| Declarator LBRACKET Expr RBRACKET
-	| LBRACKET Expr RBRACKET
-	| Declarator LBRACKET RBRACKET
-	| Declarator LPAREN ParameterList RPAREN
+	: DeclaratorPointer DirectAbstractDeclarator
+	{
+		$$ = new PointerDeclarator($1,$2);
+		$$->SetLocation(@$);
+	}
+	| DirectAbstractDeclarator
+	{
+		$$ = $1;
+	}
+	;
+
+DirectAbstractDeclarator
+	: LPAREN AbstractDeclarator RPAREN
+	{
+		$$ = new ParenDeclarator($2);
+		$$->SetLocation(@$);
+	}
+	| LBRACKET ConstantExpr RBRACKET 
+	{
+		$$ = new ArrayDeclarator(nullptr,$2);
+		$$->SetLocation(@$);
+	}
+	| LBRACKET RBRACKET
+	{
+		$$ = new ArratDeclarator(nullptr,nullptr);
+		$$->SetLocation(@$);
+	}
+	| DirectAbstractDeclarator LBRACKET ConstantExpr RBRACKET 
+	{
+		$$ = new ArrayDeclarator($1,$3);
+		$$->SetLocation(@$);
+	}
+	| DirectAbstractDeclarator LBRACKET RBRACKET
+	{
+		$$ = new ArratDeclarator($1,nullptr);
+		$$->SetLocation(@$);
+	}
 	| LPAREN ParameterList RPAREN
-	| Declarator LPAREN RPAREN
+	{
+		$$ = new FunctionalDeclarator(nullptr,$2);
+		$$->SetLocation(@$);
+	}
 	| LPAREN RPAREN
+	{
+		$$ = new FunctionalDeclarator(nullptr,nullptr);
+		$$->SetLocation(@$);
+	}
+	| DirectAbstractDeclarator LPAREN ParameterList RPAREN
+	{
+		$$ = new FunctionalDeclarator($1,$3);
+		$$->SetLocation(@$);
+	}
+	| DirectAbstractDeclarator LPAREN RPAREN
+	{
+		$$ = new FunctionalDeclarator($1,nullptr);
+		$$->SetLocation(@$);
+	}
 	;
 
 ParameterList
 	: ParameterList COMMA ParameterDeclaration
+	{
+		$$ = $1;
+		$$->push_back($1);
+	}
 	| ParameterDeclaration
+	{
+		$$ = new std::list<Declaration*>();
+		$$->push_back($1);
+	}
 	;
 
 ParameterDeclaration
-	: TypeQualifierSpecifierList Declarator
-	| TypeQualifierSpecifierList AbstractDeclarator
-	| TypeQualifierSpecifierList
+	: QualifiedTypeSpecifier Declarator
+	{
+		$$ = new ParameterDeclaration($1,$2);
+	}
+	| QualifiedTypeSpecifier AbstractDeclarator
+	{
+		$$ = new ParameterDeclaration($1,$2);
+	}
 	;
 
-Pointer
-	: Pointer MULT TypeQualifierList
-	| Pointer
+DeclaratorPointer
+	: MUL TypeQualifierList
+	{
+		$$ = $2
+	}
+	| DeclaratorPointer MUL TypeQualifierList
+	{
+		$$ <<= 3;
+		$$ |= $3;
+	}
+	;
+
+QualifiedTypeSpecifier
+	: TypeQualifierList TypeSpecifier
+	{
+		$$ = new QualType($2,$1);
+	}
 	;
 
 TypeQualifierList
 	: TypeQualifierList TypeQualifier
-	| 
-	; 
-	
-TypeQualifierSpecifierList
-	: TypeQualifierSpecifierList TypeSpecifier
-	| TypeQualifierSpecifierList TypeQualifier
-	| TypeSpecifier
-	| TypeQualifier
+	{
+		$$ |= $1;
+	}
+	| %empty
+	{
+		$$ = 0;
+	}
 	;
 
 FunctionDefination
-	: StorageClassSpecifier TypeQualifierSpecifierList Declarator ConmpoundStatement
+	: StorageClassSpecifier QualifiedTypeSpecifier Declarator CompoundStmt
+	{
+		$$ = new FunctionDefination($1,$2,$3,$4);
+	}
 	;
 
 TypeSpecifier
 	: VOID
+	{
+		$$ = type_context->Void();
+	}
 	| INT
+	{
+		$$ = type_context->Int();
+	}
 	| FLOAT
-	| StructSpecifier
-	| UnionSpecifier
+	{
+		$$ = type_context->Float();
+	}
+	| RecordSpecifier
+	{
+		$$ = $1;
+	}
 	| EnumSpecifier
-	| TypedefName
+	{
+		$$ = $1;
+	}
+	| TypeIdentifier
+	{
+		auto typeid = as<TypeDeclaration*>(current_context.Lookup($1));
+		$$ = typeid->DeclType();
+	}
 	;
 
 TypeQualifier
 	: CONST
+	{
+		$$ = $1;
+	}
 	| VOLATILE 
+	{
+		$$ = $1;
+	}
 	| RESTRICT
+	{
+		$$ = $1;
+	}
 	;
 
 StorageClassSpecifier
 	: EXTERN
+	{
+		$$ = $1;
+	}
 	| STATIC
+	{
+		$$ = $1;
+	}
 	| AUTO
+	{
+		$$ = $1;
+	}
 	| REGISTER
+	{
+		$$ = $1;
+	}
 	;
 
-StructSpecifier
-	: STRUCT IDENTIFIER LBRACE StructDeclList RBRACE
-	| STRUCT LBRACE StructDeclList RBRACE
-	| STRUCT IDENTIFIER
+RecordSpecifier
+	: RecordKeyword Identifier LBRACE FieldDeclarationList RBRACE
+	{
+		$$ = type_context->NewRecordType($1,$2,$4);
+	}
+	| RecordKeyword LBRACE FieldDeclarationList RBRACE
+	{
+		$$ = type_context->NewRecordType($1,$3);
+	}
+	| RecordKeyword Identifier
+	{
+		$$ = type_context->NewRecordType($1,$2);
+	}
 	;
 
-UnionSpecifier
-	: UNION IDENTIFIER LBRACE StructDeclList RBRACE
-	| UNION LBRACE StructDeclList RBRACE
-	| UNION IDENTIFIER
+RecordKeyword
+	: STRUCT
+	{
+		$$ = $1;
+	}
+	| UNION
+	{
+		$$ = $1;
+	}
 	;
 
 EnumSpecifier
-	: ENUM IDENTIFIER LBRACE EnumeratorList RBRACE
-	| ENUM IDENTIFIER LBRACE EnumeratorList COMMA RBRACE
+	: ENUM Identifier LBRACE EnumeratorList RBRACE
+	{
+		$$ = type_context->NewEnumType($2,$4);
+	}
+	| ENUM Identifier LBRACE EnumeratorList COMMA RBRACE
+	{
+		$$ = type_context->NewEnumType($2,$4);
+	}
 	| ENUM LBRACE EnumeratorList RBRACE
+	{
+		$$ = type_context->NewEnumType($3);
+	}
 	| ENUM LBRACE EnumeratorList COMMA RBRACE
-	| ENUM IDENTIFIER
+	{
+		$$ = type_context->NewEnumType($3);
+	}
+	| ENUM Identifier
+	{
+		$$ = type_context->NewEnumType($2);
+	}
 	;
 
-StructDeclList
-	: StructDeclaration
-	| StructDeclList StructDeclaration
+EnumeratorList
+	: EnumeratorList COMMA Enumerator
+	{
+		$$ = $1;
+		$$->push_back($3);
+	}
+	| Enumerator
+	{
+		$$ = new std::list<Declarator*>();
+		$$->push_back($1);
+	}
 	;
 
-Program		:Decls MainDefine
-		{
-			debug("Program ::= Decls MainDefine \n");
-			$$ = $1;
-			$$->program->main = $2;
-			setLoc($$,(Loc)&(@$));
-			ast->root = $$;               
-		}
-		;
-Decls		:
-		{
-			debug("Decls ::= \n");
-			$$ = newProgram();
-			//$$->kind = KDecls;
-		}
-		|Decls Decl
-		{
-			debug("Decls ::= Decls Decl \n");
-			addLast($1->program->decls, $2);
-			$$ = $1;
-			setLoc($$,(Loc)&(@$));
-		}
-		;
-Decl		:Vdecl
-		{
-			debug("Decl ::= Vdecl \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		| Cdecl
-		{
-			debug("Decl ::= Cdecl \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		| FunctionDefine
-		{
-			debug("Decl ::= FunctionDef \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		;
-Vdecl		:int VarList ';'	
-		{
-			debug("Vdecl ::= int ident Vdelf ;\n");
-			$$ = $2;
-			setLoc($$,(Loc)&(@$));
-		}
-		;
+Enumerator
+	: Identifier
+	{
+		$$ = new Enumerator($1);
+		$$->SetLocation(@$);
+	}
+	| Identifier ASSIGN ConstantExpr
+	{
+		$$ = new Enumerator($1,$3);
+		$$->SetLocation(@$);
+	}
+	;
 
-VarList		:VarList ',' ident InitExpr
-		{
-			debug("Vdelf ::= Vdelf , ident \n");
-			addLast($1->vardeclstmt->vars, newVariable(ast->Tab,$3,$4));
-			$$ = $1;
-			setLoc($$,(Loc)&(@$));
-		}
-		| ident InitExpr
-		{
-			debug("Vdelf ::= \n");
-			$$ = newVarDeclStmt(INT);
-			addLast($$->vardeclstmt->vars, newVariable(ast->Tab,$1,$2));
-			setLoc($$,(Loc)&(@$));
-		}
-		;
+FieldDeclarationList
+	: FieldDeclaration
+	{
+		$$ = new std::list<Declaration*>();
+		$$->push_back($1);
+	}
+	| FieldDeclarationList FieldDeclaration
+	{
+		$$ = $1;
+		$$->push_back($2);
+	}
+	;
 
-InitExpr	: ASGN number
+FieldDeclaration
+	: QualifiedTypeSpecifier FieldDeclaratorList SEMICOLON
+	{
+		for (declarator : $2)
 		{
-			$$ = newNumber($2);
-			setLoc($$, (Loc)&(@$));
-		}
-		| 
-		{
-			$$ = NULL;
-		}
-		;
+			Declaration* decl = new FieldDeclaration($1,$2);
+			current_context.add(decl);
+		}		
+	}
+	;
 
-Cdecl		:const int ConstList ';'
-		{
-			debug("Cdecl ::= const int Assn Cdelf ;\n");
-			$$ = $3;
-			setLoc($$,(Loc)&(@$));
-		}
-		;
+FieldDeclaratorList
+	: FieldDeclaratorList COMMA FieldDeclarator
+	{
+		$$ = $1;
+		$$->push_back($3);
+	}
+	| FieldDeclarator
+	{
+		$$ = new std::list<Declarator*>();
+		$$->push_back($1);
+	}
+	;
 
-ConstList		:ConstList ',' ident InitExpr
-		{
-			debug("Vdelf ::= Vdelf , ident \n");
-			addLast($1->vardeclstmt->vars, newConstant(ast->Tab,$3,$4));
-			$$ = $1;
-			setLoc($$,(Loc)&(@$));
-		}
-		| ident InitExpr
-		{
-			debug("Vdelf ::= \n");
-			$$ = newConstDeclStmt(CONST_INT);
-			addLast($$->vardeclstmt->vars, newConstant(ast->Tab,$1,$2));
-			setLoc($$,(Loc)&(@$));
-		}
-		;
+FieldDeclarator
+	: Declarator COLON ConstantExpr
+	{
+		$$ = new FieldDeclarator($1,$3);
+	}
+	| COLON ConstantExpr
+	{
+		$$ = new FieldDeclarator(nullptr,$2);
+	}
+	| Declarator
+	{
+		$$ = new FieldDeclarator($1);
+	}
+	;
 
-FunctionDecl:void ident '(' ')'
-		{
-			debug("FunctionDecl ::= void ident ()\n");
-			$$ = newFunction(ast->Tab, $2, NULL);
-		}
-		;
+Identifier
+	: NewIdentifier
+	{
+		$$ = $1;
+	}
+	| ObjectIdentifier
+	{
+		$$ = $1;
+	}
+	;
 
-FunctionDefine	:FunctionDecl CompStat
-		{
-			debug("FunctionDef ::= void ident ()  CompStat \n");
-			$$->function->body = $2;
-			setLoc($$,(Loc)&(@$));
-		} 
-		;
+PrimaryExpr
+	: INT_LITERAL
+	{
+		$$ = $1;
+		$$->SetLocation(@$);
+	}
+	| STRING_LITERAL
+	{
+		$$ = $1;
+		$$->SetLocation(@$);
+	}
+	| FLOAT_LITERAL
+	{
+		$$ = $1;
+		$$->SetLocation(@$);
+	}
+	| Identifier
+	{
+		$$ = new DeclRefExpr($1);
+		$$->SetLocation(@$);
+	}
+	| LPAREN Expr RPAREN
+	{
+		$$ = new ParenExpr($2);
+		$$->SetLocation(@$);
+	}
+	;
 
-MainDefine		:void main '(' ')'  CompStat
-		{
-			debug("MainDefine ::= void main () CompStat \n");
-			$$ = newFunction(ast->Tab,"main",$5);
-			setLoc($$,(Loc)&(@$));
-		}
-		;
+PosfixExpr
+	: PrimaryExpr
+	{
+		$$ = $1;
+	}
+	| PosfixExpr ADDADD
+	{
+		$$ = new UnaryExpr(OP_SUFIX_SELF_PLUS,$2);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr SUBSUB
+	{
+		$$ = new UnaryExpr(OP_SUFIX_SELF_SUB,$2);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr LBRACKET Expr RBRACKET
+	{
+		$$ = new IndexExpr($1,$3);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr LPAREN ArgumentList RPAREN
+	{
+		$$ = new CallExpr($1,$3);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr LPAREN RPAREN
+	{
+		$$ = new CallExpr($1,nullptr);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr DOT Identifier
+	{
+		$$ = new DirectMemberExpr($1,$3);
+		$$->SetLocation(@$);
+	}
+	| PosfixExpr ARROW Identifier
+	{
+		$$ = new IndirectMemberExpr($1,$3);
+		$$->SetLocation(@$);
+	}
+	;
 
-CompStat	:'{'Statf'}'
-		{
-			debug("CompStat ::= { Statf } \n");
-			$$ = $2; 
-			popTable(ast->Tab);
-			setLoc($$,(Loc)&(@$));
-		}
-		;
-Statf		:Statf Stat
-		{
-			debug("Statf ::= Statf Stat \n");
-			addLast($1->compstmt->stmts,$2);
-			$$ = $1;
-			setLoc($$,(Loc)&(@$));
-		}
-		|
-		{
-			debug("Statf ::= \n");
-			pushTable(ast->Tab);
-			$$ = newComposeStmt();
-		}
-		;
-Stat		:ident ASGN Exp ';' 
-		{
-			debug("stat ::= ident ASGN Exp ; \n");
-			$$=newAssignExpr($2,newVarExpr(ast->Tab, $1), $3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|if '(' Relation ')' Stat 
-		{
-			debug("stat ::= if ( Relation ) Stat  \n");
-			$$=newIfStmt($3,$5);
-			setLoc($$,(Loc)&(@$));
-		}
-		|while '(' Relation ')'  Stat
-		{
-			debug("stat ::= while ( Relation )  Stat \n");
-			$$ = newWhileStmt($3,$5);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Vdecl
-		{
-			debug("stat ::= Vdecl \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		|Cdecl
-		{
-			debug("stat ::= Cdecl \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		|ident '(' ')' ';'
-		{
-			debug("stat ::= ident ( ) ; \n");
-			$$ = newCallExpr(ast->Tab,$1);
-			setLoc($$,(Loc)&(@$));
-		}
-		|CompStat
-		{
-			debug("stat ::= CompStat \n");
-			$$ = $1;
-			//setLoc($$,(Loc)&(@$));
-		}
-		;
-Relation	:Exp GT Exp
-		{
-			debug("Relation ::= Exp GT Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Exp LT Exp
-		{
-			debug("Relation ::= Exp LT Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Exp EQ Exp
-		{
-			debug("Relation ::= Exp EQ Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Exp NE Exp
-		{
-			debug("Relation ::= Exp NQ Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Exp LE Exp
-		{
-			debug("Relation ::= Exp LE Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		|Exp BE Exp
-		{
-			debug("Relation ::= Exp BE Exp \n");
-			$$=newRelationExpr($2,$1,$3);
-			setLoc($$,(Loc)&(@$));
-		}
-		;
-Exp     	: number
-		{
-			debug("Exp ::= number\n");
-			$$ = newNumber($1);
-			setLoc($$, (Loc)&(@$));
-		}
-		| ident
-		{
-			debug("Exp ::= ident\n");
-			$$ = newVarExpr(ast->Tab, $1); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| Exp PLUS Exp
-		{
-			debug("Exp ::= Exp PLUS Exp\n");
-			$$ = newInfixExpr($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| Exp MINUS Exp
-		{
-			debug("Exp ::= Exp MINUS Exp\n");
-			$$ = newInfixExpr($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| Exp MULT Exp
-		{
-			debug("Exp ::= Exp MULT Exp\n");
-			$$ = newInfixExpr($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| Exp DIV Exp
-		{
-			debug("Exp ::= Exp DIV Exp\n");
-			$$ = newInfixExpr($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| Exp MOD Exp
-		{
-			debug("Exp ::= Exp MOD Exp\n");
-			$$ = newInfixExpr($2, $1, $3); 
-			setLoc($$, (Loc)&(@$));
-		}
-		| '(' Exp ')'
-		{
-			debug("Exp ::= ( Exp )\n");
-			$$ = newParenExpr($2);
-			setLoc($$, (Loc)&(@$));
-		}
+UnaryExpr
+	: PosfixExpr
+	{
+		$$ = $1;
+	}
+	| ADDADD UnaryExpr
+	{
+		$$ = new UnaryExpr($1,$2)
+		$$->SetLocation(@$);
+	}
+	| SUBSUB UnaryExpr
+	{
+		$$ = new UnaryExpr($1,$2)
+		$$->SetLocation(@$);
+	}
+	| UnaryOperator CastExpr
+	{
+		$$ = new UnaryExpr($1,$2)
+		$$->SetLocation(@$);
+	}
+	| SIZEOF UnaryExpr
+	{
+		$$ = new SizeofExpr($2);
+		$$->SetLocation(@$);
+	}
+	| SIZEOF LPAREN TypeExpr RPAREN
+	{
+		$$ = new SizeofTypeExpr($3);
+		$$->SetLocation(@$);
+	}
+	;
+
+UnaryOperator
+	: AND
+	{
+		$$ = $1;
+	}
+	| MUL
+	{
+		$$ = $1;
+	}
+	| ADD
+	{
+		$$ = $1;
+	}
+	| SUB
+	{
+		$$ = $1;
+	}
+	| REVERSE
+	{
+		$$ = $1;
+	}
+	| NOT
+	{
+		$$ = $1;
+	}
+	;
+
+CastExpr
+	: UnaryExpr
+	{
+		$$ = $1;
+	}
+	| CAST LSS TypeExpr GTR LPAREN Expr RPAREN
+	{
+		$$ = new ExplicitCastExpr($3,$6);
+		$$ = SetLocation(@$);
+	}
+	| LPAREN TypeExpr RPAREN CastExpr
+	{
+		$$ = new ExplicitCastExpr($2,$4);
+		$$ = SetLocation(@$);
+	}
+	;
+
+ArithmeticExpr
+	: CastExpr
+	{ 
+		$$ = $1;
+	}
+	| ArithmeticExpr ADD CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr SUB CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr MUL CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr DIV CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr MOD CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr LSH CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| ArithmeticExpr RSH CastExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+RelationExpr
+	: ArithmeticExpr
+	{
+		$$ = $1;
+	}
+	| RelationExpr LEQ ArithmeticExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| RelationExpr GEQ ArithmeticExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| RelationExpr GTR ArithmeticExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| RelationExpr LSS ArithmeticExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+EqualityExpr
+	: RelationExpr
+	{
+		$$ = $1;
+	}
+	| EqualityExpr EQL RelationExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| EqualityExpr NEQ RelationExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+
+BitwiseExpr
+	: EqualityExpr
+	{
+		$$ = $1;
+	}
+	| BitwiseExpr AND EqualityExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| BitwiseExpr OR  EqualityExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	| BitwiseExpr XOR EqualityExpr
+	{
+		$$ = new ArithmeticExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+LogicAndExpr
+	: BitwiseExpr
+	{
+		$$ = $1;
+	}
+	| LogicAndExpr ANDAND BitwiseExpr
+	{
+		$$ = new LogicExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+LogicOrExpr
+	: LogicAndExpr
+	{
+		$$ = $1;
+	}
+	| LogicOrExpr OROR LogicAndExpr
+	{
+		$$ = new LogicExpr($2,$1,$3);
+		$$->SetLocation(@$);
+	}
+	;
+
+ConditionalExpr
+	: LogicOrExpr
+	{
+		$$ = $1;
+	};
+
+AssignExpr
+	: BitwiseExpr
+	{
+		$$ = $1;
+	}
+	| UnaryExpr AssignOperator AssignExpr
+	{
+		//Unary operator here is because binary operator don't have L-value
+		$$ = new AssignExpr($1,$3);
+		$$ = SetLocation(@$);
+	}
+	;
+
+AssignOperator
+	: ASSIGN
+	{ $$ = $1 }
+	| MUL_ASSIGN
+	{ $$ = $1 }
+	| DIV_ASSIGN
+	{ $$ = $1 }
+	| MOD_ASSIGN
+	{ $$ = $1 }
+	| ADD_ASSIGN
+	{ $$ = $1 }
+	| SUB_ASSIGN
+	{ $$ = $1 }
+	| LSH_ASSIGN
+	{ $$ = $1 }
+	| RSH_ASSIGN
+	{ $$ = $1 }
+	| AND_ASSIGN
+	{ $$ = $1 }
+	| XOR_ASSIGN
+	{ $$ = $1 }
+	| OR_ASSIGN
+	{ $$ = $1 }
+	;
+
+Expr
+	: AssignExpr
+	{
+		$$ = $1;
+	}
+	| Expr COMMA AssignExpr
+	{
+		// Comma expression is evil!!!
+		$$ = new CommaExpr($1,$3);
+	}
+	;
+
+ConstantExpr
+	: ConditionalExpr
+	{
+		// Constant expression don't support assign expression
+		// nessary for initializers and compile time constant
+		$$ = $1;
+	}
+
+ArgumentList
+	: ArgumentList COMMA AssignExpr
+	{
+		$$ = $1;
+		$$->push_back($3);
+	}
+	| AssignExpr
+	{
+		$$ = new std::list<Expr*>();
+	}
+	;
+
+TypeExpr
+	: QualifiedTypeSpecifier AbstractDeclarator
+	{
+		$$ = new TypeExpr($1,$2);
+		$$->SetLocation(@$);
+	}
+	;
+
+Stmt
+	: ExprStmt
+	{
+		$$ = $1;
+	}
+	| DeclStmt
+	{
+		$$ = $1;
+	}
+	| IterationStmt
+	{
+		$$ = $1;
+	}
+	| SelectionStmt
+	{
+		$$ = $1;
+	}
+	| JumpStmt
+	{
+		$$ = $1;
+	}
+	| Label
+	{
+		$$ = $1;
+	}
+	| CompoundStmt
+	{
+		$$ = $1;
+	}
+	;
+
+CompoundStmt
+	: LBRACE RBRACE
+	{
+		$$ = new CompoundStmt(nullptr);
+		$$->SetLocation(@$);
+	}
+	| LBRACE StmtList RBRACE
+	{
+		$$ = new CompoundStmt($2);		
+		$$->SetLocation(@$);
+	}
+	;
+
+StmtList
+	: StmtList Stmt
+	{
+		$$ = $1;
+		$$->push_back($2);
+	}
+	| Stmt
+	{
+		$$ = new std::list<Stmt*>();
+		$$->push_back($1);
+	}
+	;
+
+ExprStmt
+	: Expr SEMICOLON
+	{
+		$$ = new ExprStmt($1);
+		$$->SetLocation(@$);
+	}
+	| SEMICOLON
+	{
+		$$ = new NullStmt();
+		$$->SetLocation(@$);
+	}
+	;
+
+DeclStmt
+	: ObjectDeclaration
+	{
+		$$ = new DeclStmt($1);
+		$$->SetLocation(@$);
+	}
+	| TypeDefination
+	{
+		$$ = new DeclStmt($1);
+		$$->SetLocation(@$);
+	}
+	;
+
+IterationStmt
+	: FOR LPAREN Stmt ExprStmt Expr RPAREN Stmt
+	{
+		$$ = new ForStmt($3,$4,$5,$7);
+		$$->SetLocation(@$);
+	}
+	| FOR LPAREN Stmt ExprStmt RPAREN Stmt
+	{
+		$$ = new ForStmt($3,$4,nullptr,$6);
+		$$->SetLocation(@$);
+	}
+	| WHILE LPAREN Expr RPAREN Stmt
+	{
+		$$ = new WhileStmt($3,$5);
+		$$->SetLocation(@$);
+	}
+	| DO Stmt WHILE LPAREN Expr RPAREN SEMICOLON
+	{
+		$$ = new DoWhileStmt($5,$2);
+		$$->SetLocation(@$);
+	}
+	;
+
+SelectionStmt
+	: IF LPAREN Expr RPAREN Stmt %prec NOELSE
+	{
+		$$ = new IfStmt($3,%5);
+		$$->SetLocation(@$);
+	}
+	| IF LPAREN Expr RPAREN Stmt ELSE Stmt
+	{
+		$$ = new IfStmt($3,%5,$7);
+		$$->SetLocation(@$);
+	}
+	| SWITCH LPAREN Expr RPAREN Stmt
+	{
+		$$ = new SwitchStmt($3);
+		$$->SetLocation(@$);
+		diag_context->NewDiagMsg(@$,UnsupportedFeature,"'switch statement'");
+	}
+	;
+
+JumpStmt
+	: CONTINUE SEMICOLON
+	{
+		$$ = new ContinueStmt();
+		$$->SetLocation(@$);
+	}
+	| BREAK SEMICOLON
+	{
+		$$ = new BreakStmt();
+		$$->SetLocation(@$);
+	}
+	| RETURN SEMICOLON
+	{
+		$$ = new ReturnStmt();
+		$$->SetLocation(@$);
+	}
+	| RETURN Expr SEMICOLON
+	{
+		$$ = new ReturnStmt($2);
+		$$->SetLocation(@$);
+	}
+	;
+
+Label
+	: CASE Expr COLON
+	{
+		$$ = new CaseLabel($2);
+		$$->SetLocation(@$);
+	}
+	| DEFAULT COLON
+	{
+		$$ = new DefaultLabel();
+		$$->SetLocation(@$);
+	}
+	;
 
 %%
 
