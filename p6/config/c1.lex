@@ -10,16 +10,23 @@
 
 %option noyywrap c++ yyclass="FlexScanner" yylineno
 
-digit		[0-9]+
-octal		0[0-7]+	
-hex			0[Xx][0-9A-Fa-f]+
-unsigned	{digit}[uU]
-decimal		[{digit}]?"."{digit}[fFdD]
-sci_float	{decimal}[eE]["+""-"]?{digit}
-ident		[A-Za-z_][A-Za-z_0-9]*
+%x COMMENT
+
+digit				[0-9]+
+octal				0[0-7]+	
+hex					0[Xx][0-9A-Fa-f]+
+unsigned			{digit}[uU]
+decimal				[{digit}]?"."{digit}[fFdD]
+sci_float			{decimal}[eE]["+""-"]?{digit}
+ident				[A-Za-z_][A-Za-z_0-9]*
+line_comment		"//"[^\n]+
+char_literal		"'"([^"'"\n])*"'"
+string_literal		"\""([^"'"\n])*"\""
+bad_char_literal	"\""([^"'"\n])*\n
+bad_string_literal	"'"([^"'"\n])*\n
 
 %{
-#define yyterminate() return token::eof
+#define yyterminate() return token::END_OF_FILE
 # define YY_USER_ACTION yylloc->columns (yyleng);
 %}
 
@@ -31,16 +38,32 @@ typedef C1::BisonParser::token token;
 %{
 	yylloc->step ();
 %}
-{comment}    	{
-					yylloc->lines (yyleng);
-					yylloc->step (); 
+"/*"    		{
+					BEGIN(LINECOMMENT);
+					yycomment = "";
 				}
-{linecomment} 	{
-					yylloc->lines (yyleng);
+<COMMENT>"*/" 	{
+					BEGIN(INITIAL);
+		    	}
+<COMMENT>[\n]	{
+					yylloc->lines ();
+					yycomment += yytext;
+				}
+<COMMENT>[^*/\n]+ {
+					yycomment += yytext;
+				}
+<COMMENT>[*/] {
+					yycomment += yytext;
+				}
+<COMMENT><<EOF>> {
+				    printf("Error : File end during comments.\n");	
+				}
+{line_comment} 	{
+					yylloc->lines ();
 					yylloc->step (); 
 				}
 [\n] 			{ 
-					yylloc->lines (yyleng);
+					yylloc->lines ();
 					yylloc->step (); 
 				}
 [\t ]*     		{ 
@@ -91,8 +114,8 @@ typedef C1::BisonParser::token token;
 				}
 
 {octal} 		{ 
-						yylval->ival = strtol(yytext,NULL,8);//atol(yytext);
-						return(token::INT_LITERAL);
+					yylval->ival = strtol(yytext,NULL,8);//atol(yytext);
+					return(token::INT_LITERAL);
 				}
 {digit}    		{ 
 					yylval->ival = strtol(yytext,NULL,10);//atol(yytext);

@@ -38,6 +38,7 @@ namespace C1 {
 		int yylex();
 
 		// point to yylval (provided by Bison in overloaded yylex)
+		std::string	yycomment;
 		C1::BisonParser::semantic_type * yylval;
 		C1::BisonParser::location_type * yylloc;
 		unsigned int yycolumn;

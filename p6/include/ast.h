@@ -20,6 +20,15 @@ namespace C1
 
 	namespace AST
 	{
+		template <typename TargetType, typename SourceType>
+		bool isa(typename SourceType* var)
+		{
+			static_assert(std::is_pointer<TargetType>::value);
+			TargetType ptr = dynamic_cast<TargetType> var;
+			return ptr != nullptr;
+		};
+
+		class TranslationUnit;
 		// Storage nesseary "global" context value for building AST
 		struct ASTContext
 		{
@@ -56,10 +65,10 @@ namespace C1
 			Node* Parent();
 			void SetParent(Node*);
 
-			virtual const std::list<const Node*> Children() const = 0;
-			virtual std::list<Node*> Children() = 0;
+			//virtual const std::list<const Node*> Children() const = 0;
+			//virtual std::list<Node*> Children() = 0;
 
-			virtual std::string ToString() const = 0;
+			virtual std::string ToString() const/* = 0*/;
 
 			virtual ~Node() = 0;
 		private:
@@ -69,15 +78,18 @@ namespace C1
 
 		class Comment : public Node
 		{
+		public:
 			const std::string &Content() const;
 			std::string &Content();
 		};
 
 		class TranslationUnit : public Node , public DeclContext
 		{
+		public:
 			const std::string& Name() const;
 			std::list<Declaration*>& Declarations();
 			const std::list<Declaration*>& Declarations() const;
+			~TranslationUnit();
 		};
 
 		enum ExprValueType
@@ -90,8 +102,8 @@ namespace C1
 		class Expr : public Node
 		{
 		public:
-			virtual const Type* ReturnType() const = 0;
-			virtual ExprValueType ValueType() const = 0;
+			const Type* ReturnType() const;
+			ExprValueType ValueType() const;
 
 			template <typename value_type>
 			value_type Evaluate() const;
@@ -118,11 +130,13 @@ namespace C1
 
 		class DeclRefExpr : public Expr
 		{
+		public:
 			const Declaration* Declaration() const;
 		};
 
 		class UnaryExpr : public Expr
 		{
+		public:
 			const Expr* SubExpr() const;
 			OperatorsEnum Operator() const;
 		private:
@@ -131,7 +145,8 @@ namespace C1
 
 		class BinaryExpr : public Expr
 		{
-			const std::array<Expr*,2>& SubExprs() const;
+		public:
+			const std::array<Expr*, 2>& SubExprs() const;
 			const Expr* LeftSubExpr() const;
 			const Expr* RightSubExpr() const;
 			const OperatorsEnum Operator() const;
@@ -141,27 +156,32 @@ namespace C1
 
 		class AssignExpr : public Expr
 		{
+		public:
 			const Expr* Value() const;
 			const Expr* Assignee() const;
 		};
 
 		class IndexExpr : public BinaryExpr
 		{
+		public:
 
 		};
 
 		class CompoundAssignExpr : public AssignExpr
 		{
+		public:
 			const OperatorsEnum Operator() const;
 		};
 
 		class ArithmeticExpr : public BinaryExpr
 		{
+		public:
 
 		};
 
 		class LogicExpr : public BinaryExpr
 		{
+		public:
 
 		};
 
@@ -224,40 +244,55 @@ namespace C1
 
 		class Initializer : public Expr
 		{
+		public:
+			explicit Initializer(Expr* expr);
 			const Expr* Value() const;
-			const std::list<Initializer*>& List() const;
 			const bool IsList() const;
 			const bool IsValue() const;
 		};
+		class InitializerList : public Initializer ,public std::list<Initializer*>
+		{
+		public:
+			explicit InitializerList(std::list<Initializer*>&& list);
+			explicit InitializerList(const std::list<Initializer*>& list);
+		};
 
-		class Stmt : Node
-		{};
+		class Stmt : public Node
+		{
+		public:
+		};
 		class CompoundStmt : public Stmt
 		{
+		public:
 			const std::list<Stmt*>& SubStmts() const;
 			const DeclContext* DeclarationContext() const;
 		};
 		class ExprStmt : public Stmt
 		{
+		public:
 			const Expr* Expression() const;
 		};
 		class ReturnStmt : public Stmt
 		{
+		public:
 			const Expr* ReturnExpr() const;
 		};
 
 		class IterationStmt : public Stmt
 		{
+		public:
 			const Stmt* Action() const;
 		};
 
 		class WhileStmt : public IterationStmt
 		{
+		public:
 			const Expr* Condition() const;
 		};
 
 		class ForStmt : public IterationStmt
 		{
+		public:
 			const Stmt* Initializer() const;
 			const Expr* Condition() const;
 			const Expr* PostAction() const;
@@ -265,13 +300,23 @@ namespace C1
 
 		class IfStmt : public Stmt
 		{
+		public:
 			const Expr* Condition() const;
 			const Stmt* Then() const;
 			const Stmt* Else() const;
 		};
 
 		class VarDeclStmt : public Stmt
-		{};
+		{
+		public:
+		};
+
+		class FunctionDefination : public Node
+		{
+		public:
+			FunctionDefination(StorageClassSpecifierEnum scs, QualType qual_type, Declarator* declarator, Stmt* body);
+			const Stmt* Body() const;
+		};
 		//class Variable : Node
 		//{};
 
@@ -280,42 +325,63 @@ namespace C1
 		//	virtual std::list<Node*> ParameterList() const;
 		//};
 
+		class Enumerator : public Node
+		{
+		public:
+			explicit Enumerator(const std::string &name, Expr* value_expr = nullptr);
+			const std::string& Name() const;
+			const Expr* Value() const;
+		};
+
 		class Declarator : public Node
 		{
+		public:
 			bool IsAbstract() const;
 		};
 
 		class InitDeclarator : public Declarator
 		{
+		public:
+			InitDeclarator(Declarator* declarator, Initializer* initializer);
 			const Initializer* Initializer() const;
 		};
 
-		class ParenDeclartor : Declarator
+		class ParenDeclarator : public Declarator
 		{
+		public:
+			ParenDeclarator(Declarator* base);
 			const Declarator* Base() const;
 		};
 
-		class IdentifierDeclarator : Declarator
+		class IdentifierDeclarator : public Declarator
 		{
+		public:
+			IdentifierDeclarator(const std::string& name);
 			const std::string& Identifier() const;
 		};
 
-		class PointerDeclarator : Declarator
+		class PointerDeclarator : public Declarator
 		{
+		public:
+			PointerDeclarator(int qualfier_mask, Declarator* base);
 			const Declarator* Base() const;
 			unsigned QualifierMask() const;
 		};
 
-		class ArrayDeclartor : Declarator
+		class ArrayDeclarator : public Declarator
 		{
+		public:
+			ArrayDeclarator(Declarator* base,Expr* size);
 			const Declarator* Base() const;
 			const Expr* SizeExpr() const;
 		};
 
-		class FunctionalDeclarator : Declarator
+		class FunctionalDeclarator : public Declarator
 		{
+		public:
+			FunctionalDeclarator(Declarator* base, std::list<Declaration*>* param_list);
 			const Declarator* Base() const;
-			const std::list<ParameterDeclaration*> ParameterList() const;
+			const std::list<ParameterDeclaration*>& ParameterList() const;
 		};
 
 	}

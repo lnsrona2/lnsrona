@@ -3,8 +3,8 @@
 %defines 
 %define api.namespace {C1}
 %define parser_class_name {BisonParser}
-%parse-param { C1::FlexScanner &scanner }
-%lex-param   { C1::FlexScanner &scanner }
+%param { C1::AST::ASTContext& context }
+%param { C1::FlexScanner& scanner }
 
 %define parse.assert
 %define parse.trace
@@ -21,40 +21,44 @@
 	namespace C1 {
 		class FlexScanner;
 	}
-
 }
 
 
 %union{
 	int					ival;
-	OperatorsEnum		operator;
-	Expr*				expr;
-	Stmt*				stmt;
-	QualType*			qual_type;
-	Type*				type;
-	Node*				node;
-	Declarator*			declarator;
-	std::list<void*>*	list;
-	std::list<Declarator*>*		declarator_list;
-	std::list<Declaration*>*	decl_list;
-	std::list<Stmt*>*	stmt_list;
-	std::list<Expr*>*	expr_list;
+	OperatorsEnum		op_enum;
+	StorageClassSpecifierEnum scp_enum;
+	AST::QualType*			qual_type;
+	AST::Type*				type;
+	AST::Node*			node;
+	AST::Expr*			expr;
+	AST::Initializer*	initializer;
+	AST::Stmt*			stmt;
+	AST::Declaration*	decl;
+	AST::Declarator*	declarator;
+	std::list<AST::Declarator*>*	declarator_list;
+	std::list<AST::Declaration*>*	decl_list;
+	std::list<AST::Stmt*>*	stmt_list;
+	std::list<AST::Expr*>*	expr_list;
+	std::list<AST::Initializer*>*	initializer_list;
 	std::list<int>*		int_list;
-	IdentifierInfo*		identifier;
+	std::string*		str;
 }
 
 
 %code {
 	// Prototype for the yylex function
-	static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc, C1::FlexScanner &scanner);
+	static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext&, C1::FlexScanner &scanner);
 	static int debug(const char* message)
 	{
 		return printf(message);
 	}
+	using namespace C1::AST;
+	using namespace std;
 }
 
 %locations
-%token EOF
+%token END_OF_FILE
 %token WHILE IF ELSE FOR DO SWITCH GOTO
 %token BREAK RETURN CONTINUE CASE DEFAULT
 %token CONST VOLATILE RESTRICT
@@ -93,44 +97,43 @@
 %right POSITIVE NEGTIVE NOT REVERSE ADDRESS DEREF SIZEOF ADDADD SUBSUB CAST
 %left MEMBER RBRACKET RPAREN
 
-%type <int> CONST RESTRICT VOLATILE TypeQualifier TypeQualifierList
-%type <int> STATIC EXTERN AUTO REGISTER StorageClassSpecifier
-%type <int> STRUCT UNION RecordKeyword 
-%type <int> DeclaratorPointer
+%type <ival> CONST RESTRICT VOLATILE TypeQualifier TypeQualifierList
+%type <scp_enum> STATIC EXTERN AUTO REGISTER StorageClassSpecifier
+%type <ival> STRUCT UNION RecordKeyword 
+%type <ival> DeclaratorPointer
 
 %type <expr> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
 %type <expr> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
-%type <expr> Initializer
+%type <initializer> Initializer
 
 %type <type> TypeSpecifier RecordSpecifier EnumSpecifier
 %type <qual_type> TypeExpr QualifiedTypeSpecifier
 
 %type <stmt> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
 
-%type <node> TranslationUnit 
-%type <decl> ExtendDeclaration ObjectDeclaration TypeDefination FunctionDefination
+%type <node> TranslationUnit FunctionDefination ExtendDeclaration
+%type <decl> ObjectDeclaration TypeDefination
 %type <decl> ParameterDeclaration FieldDeclaration
 
 %type <declarator> Declarator DirectDeclarator AbstractDeclarator DirectAbstractDeclarator InitDeclarator FieldDeclarator Enumerator
 
-%type <idenifier> TypeIdentifier ObjectIdentifier NewIdentifier Identifier 
+%type <str> TypeIdentifier ObjectIdentifier NewIdentifier Identifier 
 
-%type <list> DeclaratorList EnumeratorList
 %type <initializer_list> InitializerList 
-%type <declarator_list> InitDeclaratorList FieldDeclaratorList
+%type <declarator_list> DeclaratorList EnumeratorList InitDeclaratorList FieldDeclaratorList
 %type <decl_list> ParameterList FieldDeclarationList
 %type <stmt_list> StmtList
 %type <expr_list> ArgumentList
 
-%type <operator> AssignOperator UnaryOperator
-%type <operator> ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN
-%type <operator> ADD SUB MUL DIV MOD
-%type <operator> ADDADD SUBSUB
-%type <operator> EQL NEQ LSS GTR LEQ GEQ
-%type <operator> NOT ANDAND OROR
-%type <operator> LSH RSH REVERSE AND OR XOR
-%type <operator> DOT ARROW
-%type <operator> SIZEOF
+%type <op_enum> AssignOperator UnaryOperator
+%type <op_enum> ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN
+%type <op_enum> ADD SUB MUL DIV MOD
+%type <op_enum> ADDADD SUBSUB
+%type <op_enum> EQL NEQ LSS GTR LEQ GEQ
+%type <op_enum> NOT ANDAND OROR
+%type <op_enum> LSH RSH REVERSE AND OR XOR
+%type <op_enum> DOT ARROW
+%type <op_enum> SIZEOF
 
 
 
@@ -141,12 +144,13 @@ TranslationUnit
 	: TranslationUnit ExtendDeclaration
 	{
 		$$ = $1;
-		$$->AddDeclaration($2);
+		//$$->AddDeclaration($2);
 	}
 	| ExtendDeclaration
 	{
-		$$ = context->TranslationUnit();
-		$$->AddDeclaration($1);
+		$$ = context.CurrentTranslationUnit;
+		//$$ = new TranslationUnit;
+		//$$->AddDeclaration($1);
 	}
 	;
 
@@ -155,38 +159,38 @@ ExtendDeclaration
 	{
 		$$ = $1;
 	}
-	| ObjectDeclaration
-	{
-		$$ = $1;
-	}
-	| TypeDefination
+	| DeclStmt
 	{
 		$$ = $1;
 	}
 	;
 
 ObjectDeclaration
-	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList SEMICOLON
+	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList
 	{
-		for (declarator : $3)
+		for (auto declarator : *$3)
 		{
 			Declaration* decl;
-			if (isa<FunctionDeclarator>(declarator))
-				decl = new FunctionDeclaration($1,$2,declarator);
+			if (isa<FunctionalDeclarator*>(declarator))
+			{
+				decl = new FunctionDeclaration($1,*$2,declarator);
+			}
 			else
-				decl = new VariableDeclaration($1,$2,declarator);
-			current_context.add(decl);
-		}		
+			{
+				decl = new VariableDeclaration($1,*$2,declarator);
+			}
+			context.CurrentDeclContext->AddDeclaration(decl);
+		}
 	}
 	;
 
 TypeDefination
-	: TYPEDEF QualifiedTypeSpecifier DeclaratorList SEMICOLON
+	: TYPEDEF QualifiedTypeSpecifier DeclaratorList
 	{
-		for (declarator : $3)
+		for (auto declarator : *$3)
 		{
-			auto decl = new TypedefDeclaration($2,declarator);
-			current_context.add(decl);
+			auto decl = new TypedefDeclaration(*$2,declarator);
+			context.CurrentDeclContext->AddDeclaration(decl);
 		}
 	}
 	;
@@ -195,14 +199,13 @@ DeclaratorList
 	: DeclaratorList COMMA Declarator
 	{
 		$$ = $1;
-		auto list = static_cast<std::list<Declarator*>*>($$);
-		list->push_back($3);
+		$$->push_back($3);
 	}
 	| Declarator
 	{
-		auto list = new std::list<Declarator*>();
-		lst->push_back($1);
-		$$ = list;
+		$$ = new std::list<Declarator*>();
+		$$->push_back($1);
+
 	}
 	;
 
@@ -221,7 +224,7 @@ Declarator
 DirectDeclarator
 	: Identifier
 	{
-		$$ = new IdentifierDeclarator($1);
+		$$ = new IdentifierDeclarator(*$1);
 		$$->SetLocation(@$);
 	}
 	| LPAREN Declarator RPAREN
@@ -236,7 +239,7 @@ DirectDeclarator
 	}
 	| DirectDeclarator LBRACKET RBRACKET
 	{
-		$$ = new ArratDeclarator($1,nullptr);
+		$$ = new ArrayDeclarator($1,nullptr);
 		$$->SetLocation(@$);
 	}
 	| DirectDeclarator LPAREN ParameterList RPAREN
@@ -283,12 +286,12 @@ Initializer
 	}
 	| LBRACE InitializerList RBRACE
 	{
-		$$ = new Initializer($2);
+		$$ = new InitializerList(std::move(*$2));
 		$$->SetLocation(@$);
 	}
 	| LBRACE InitializerList COMMA RBRACE
 	{
-		$$ = new Initializer($2);
+		$$ = new InitializerList(std::move(*$2));
 		$$->SetLocation(@$);
 	}
 	;
@@ -297,7 +300,7 @@ InitializerList
 	: InitializerList COMMA Initializer
 	{
 		$$ = $1;
-		$$->push_back($1);
+		$$->push_back($3);
 	}
 	| Initializer
 	{
@@ -331,7 +334,7 @@ DirectAbstractDeclarator
 	}
 	| LBRACKET RBRACKET
 	{
-		$$ = new ArratDeclarator(nullptr,nullptr);
+		$$ = new ArrayDeclarator(nullptr,nullptr);
 		$$->SetLocation(@$);
 	}
 	| DirectAbstractDeclarator LBRACKET ConstantExpr RBRACKET 
@@ -341,7 +344,7 @@ DirectAbstractDeclarator
 	}
 	| DirectAbstractDeclarator LBRACKET RBRACKET
 	{
-		$$ = new ArratDeclarator($1,nullptr);
+		$$ = new ArrayDeclarator($1,nullptr);
 		$$->SetLocation(@$);
 	}
 	| LPAREN ParameterList RPAREN
@@ -370,7 +373,7 @@ ParameterList
 	: ParameterList COMMA ParameterDeclaration
 	{
 		$$ = $1;
-		$$->push_back($1);
+		$$->push_back($3);
 	}
 	| ParameterDeclaration
 	{
@@ -382,18 +385,18 @@ ParameterList
 ParameterDeclaration
 	: QualifiedTypeSpecifier Declarator
 	{
-		$$ = new ParameterDeclaration($1,$2);
+		$$ = new ParameterDeclaration(*$1,$2);
 	}
 	| QualifiedTypeSpecifier AbstractDeclarator
 	{
-		$$ = new ParameterDeclaration($1,$2);
+		$$ = new ParameterDeclaration(*$1,$2);
 	}
 	;
 
 DeclaratorPointer
 	: MUL TypeQualifierList
 	{
-		$$ = $2
+		$$ = $2;
 	}
 	| DeclaratorPointer MUL TypeQualifierList
 	{
@@ -423,22 +426,22 @@ TypeQualifierList
 FunctionDefination
 	: StorageClassSpecifier QualifiedTypeSpecifier Declarator CompoundStmt
 	{
-		$$ = new FunctionDefination($1,$2,$3,$4);
+		$$ = new FunctionDefination($1,*$2,$3,$4);
 	}
 	;
 
 TypeSpecifier
 	: VOID
 	{
-		$$ = type_context->Void();
+		$$ = context.TypeContext->Void();
 	}
 	| INT
 	{
-		$$ = type_context->Int();
+		$$ = context.TypeContext->Int();
 	}
 	| FLOAT
 	{
-		$$ = type_context->Float();
+		$$ = context.TypeContext->Float();
 	}
 	| RecordSpecifier
 	{
@@ -450,8 +453,9 @@ TypeSpecifier
 	}
 	| TypeIdentifier
 	{
-		auto typeid = as<TypeDeclaration*>(current_context.Lookup($1));
-		$$ = typeid->DeclType();
+		auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$1));
+		assert(decl != nullptr);
+		$$ = decl->DeclType();
 	}
 	;
 
@@ -492,15 +496,19 @@ StorageClassSpecifier
 RecordSpecifier
 	: RecordKeyword Identifier LBRACE FieldDeclarationList RBRACE
 	{
-		$$ = type_context->NewRecordType($1,$2,$4);
+		$$ = context.TypeContext->NewStructType(*$2,$4);
 	}
 	| RecordKeyword LBRACE FieldDeclarationList RBRACE
 	{
-		$$ = type_context->NewRecordType($1,$3);
+		$$ = context.TypeContext->NewStructType($3);
 	}
 	| RecordKeyword Identifier
 	{
-		$$ = type_context->NewRecordType($1,$2);
+		auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$2));
+		if (decl)
+			$$ = decl->DeclType();
+		else
+			$$ = context.TypeContext->NewStructType(*$2);
 	}
 	;
 
@@ -518,23 +526,23 @@ RecordKeyword
 EnumSpecifier
 	: ENUM Identifier LBRACE EnumeratorList RBRACE
 	{
-		$$ = type_context->NewEnumType($2,$4);
+		$$ = context.TypeContext->NewEnumType(*$2,$4);
 	}
 	| ENUM Identifier LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = type_context->NewEnumType($2,$4);
+		$$ = context.TypeContext->NewEnumType(*$2,$4);
 	}
 	| ENUM LBRACE EnumeratorList RBRACE
 	{
-		$$ = type_context->NewEnumType($3);
+		$$ = context.TypeContext->NewEnumType($3);
 	}
 	| ENUM LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = type_context->NewEnumType($3);
+		$$ = context.TypeContext->NewEnumType($3);
 	}
 	| ENUM Identifier
 	{
-		$$ = type_context->NewEnumType($2);
+		$$ = context.TypeContext->NewEnumType(*$2);
 	}
 	;
 
@@ -580,7 +588,7 @@ FieldDeclarationList
 FieldDeclaration
 	: QualifiedTypeSpecifier FieldDeclaratorList SEMICOLON
 	{
-		for (declarator : $2)
+		for (auto declarator : $2)
 		{
 			Declaration* decl = new FieldDeclaration($1,$2);
 			current_context.add(decl);
@@ -919,7 +927,7 @@ AssignExpr
 	}
 	| UnaryExpr AssignOperator AssignExpr
 	{
-		//Unary operator here is because binary operator don't have L-value
+		//Unary op_enum here is because binary op_enum don't have L-value
 		$$ = new AssignExpr($1,$3);
 		$$ = SetLocation(@$);
 	}
@@ -1061,12 +1069,12 @@ ExprStmt
 	;
 
 DeclStmt
-	: ObjectDeclaration
+	: ObjectDeclaration SEMICOLON
 	{
 		$$ = new DeclStmt($1);
 		$$->SetLocation(@$);
 	}
-	| TypeDefination
+	| TypeDefination SEMICOLON
 	{
 		$$ = new DeclStmt($1);
 		$$->SetLocation(@$);
@@ -1161,7 +1169,7 @@ void C1::BisonParser::error(const C1::BisonParser::location_type &loc, const std
 // Now that we have the Parser declared, we can declare the Scanner and implement
 // the yylex function
 #include "cscanner.h"
-static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc, C1::FlexScanner &scanner) {
+static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext& context, C1::FlexScanner &scanner);
 	return scanner.yylex(yylval,yylloc);
 }
 
