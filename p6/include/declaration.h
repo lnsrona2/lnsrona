@@ -79,6 +79,7 @@ namespace C1
 			DeclarationType *m_pPrev, *m_pNext;
 		};
 
+		// Represent an declaration in Semantic , the unit for lookup
 		class Declaration
 		{
 		public:
@@ -130,14 +131,14 @@ namespace C1
 			StorageClassSpecifierEnum StorageClassSpecifier() const;
 		};
 
-		class ParameterDeclaration : public Declaration
-		{
-		public:
-			ParameterDeclaration(QualType qual_type, Declarator* declarator);
-			const Type* DeclType() const;
-			bool IsNamed() const;
-			//const Expr* DefaultValue() const;
-		};
+		//class ParameterDeclaration : public Declaration
+		//{
+		//public:
+		//	ParameterDeclaration(QualType qual_type, Declarator* declarator);
+		//	const Type* DeclType() const;
+		//	bool IsNamed() const;
+		//	//const Expr* DefaultValue() const;
+		//};
 
 		class VariableDeclaration : public ValueDeclaration, Redeclarable<VariableDeclaration>
 		{

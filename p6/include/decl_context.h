@@ -32,7 +32,9 @@ namespace C1
 
 		private:
 			DeclContext* m_ParentContext;
-			std::multimap<std::string&, std::unique_ptr<Declaration>> m_Table;
+			std::list<DeclContext*> m_SubContexts;
+			std::list<Declaration*> m_Elements;
+			std::multimap<std::string&, Declaration*> m_Table;
 		};
 	}
 

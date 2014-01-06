@@ -31,7 +31,7 @@ namespace C1
 		class Declaration;
 		class Declarator;
 
-
+		// Represent an type in the program , it's an Semantic entity
 		class Type
 		{
 		public:
@@ -41,6 +41,13 @@ namespace C1
 			virtual ~Type();
 		};
 
+		bool type_match(const Type &lhs, const Type &rhs);
+		inline bool operator==(const Type &lhs, const Type &rhs)
+		{
+			return type_match(lhs, rhs);
+		}
+
+		// Serve as an pointer of "Type" class, but provide qualifier information
 		class QualType
 		{
 		public:
@@ -154,8 +161,9 @@ namespace C1
 			size_t m_size;
 		};
 
-		class RecordType : public Type, public DeclContext
+		class RecordType : public Type
 		{
+			StructDefination* Defination();
 		};
 
 		class StructType : public RecordType

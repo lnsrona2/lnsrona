@@ -2,6 +2,8 @@
 %skeleton "lalr1.cc"
 %defines 
 %define api.namespace {C1}
+%define api.token.constructor
+%define api.value.type variant
 %define parser_class_name {BisonParser}
 %param { C1::AST::ASTContext& context }
 %param { C1::FlexScanner& scanner }
@@ -23,29 +25,6 @@
 	}
 }
 
-
-%union{
-	int					ival;
-	OperatorsEnum		op_enum;
-	StorageClassSpecifierEnum scp_enum;
-	AST::QualType*			qual_type;
-	AST::Type*				type;
-	AST::Node*			node;
-	AST::Expr*			expr;
-	AST::Initializer*	initializer;
-	AST::Stmt*			stmt;
-	AST::Declaration*	decl;
-	AST::Declarator*	declarator;
-	std::list<AST::Declarator*>*	declarator_list;
-	std::list<AST::Declaration*>*	decl_list;
-	std::list<AST::Stmt*>*	stmt_list;
-	std::list<AST::Expr*>*	expr_list;
-	std::list<AST::Initializer*>*	initializer_list;
-	std::list<int>*		int_list;
-	std::string*		str;
-}
-
-
 %code {
 	// Prototype for the yylex function
 	static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext&, C1::FlexScanner &scanner);
@@ -58,27 +37,94 @@
 }
 
 %locations
-%token END_OF_FILE
-%token WHILE IF ELSE FOR DO SWITCH GOTO
-%token BREAK RETURN CONTINUE CASE DEFAULT
-%token CONST VOLATILE RESTRICT
-%token STATIC EXTERN AUTO REGISTER
-%token INT VOID FLOAT DOUBLE SIGNED UNSIGNED LONG CHAR SHORT
-%token STRUCT UNION ENUM
-%token TYPEDEF
-%token INT_LITERAL FLOAT_LITERAL STRING_LITERAL
-%token NewIdentifier ObjectIdentifier TypeIdentifier
-%token COMMA SEMICOLON COLON QUESTION
+%token 
+	END_OF_FILE "eof"
+	WHILE "while"
+	IF "if"
+	ELSE "else"
+	FOR "for"
+	DO "do"
+	SWITCH "switch"
+	GOTO "goto"
+	BREAK "break"
+	RETURN "return"
+	CONTINUE "continue"
+	CASE "case"
+	DEFAULT "defaul"
+	TYPEDEF "typedef"
+	COMMA ","
+	SEMICOLON ";"
+	COLON ":"
+	QUESTION "?"
+	;
 
-%token ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN ANDAND_ASSIGN OROR_ASSIGN
-%token ADD SUB MUL DIV MOD
-%token ADDADD SUBSUB
-%token EQL NEQ LSS GTR LEQ GEQ
-%token NOT ANDAND OROR
-%token LSH RSH REVERSE AND OR XOR
-%token DOT ARROW
-%token SIZEOF CAST
-%token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
+%token INT VOID FLOAT DOUBLE SIGNED UNSIGNED LONG CHAR SHORT
+
+%token <StorageClassSpecifierEnum>
+	STATIC "static"
+	EXTERN "extern"
+	AUTO "auto"
+	REGISTER "register"
+	;
+%token <TypeQualifierEnum>
+	CONST "const" 
+	VOLATILE "volatile"
+	RESTRICT "restrict"
+	;
+%token <RecordKeywordEnum>
+	STRUCT "struct" 
+	UNION "union"
+	ENUM "enum"
+	;
+
+%token <Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%token <std::string> NewIdentifier ObjectIdentifier TypeIdentifier
+
+$token <OperatorsEnum>
+	ASSIGN "="
+	MUL_ASSIGN "*="
+	ADD_ASSIGN "+="
+	DIV_ASSIGN "/="
+	SUB_ASSIGN "-="
+	AND_ASSIGN "&="
+	OR_ASSIGN "|="
+	LSH_ASSIGN "<<="
+	RSH_ASSIGN ">>="
+	MOD_ASSIGN "%="
+	XOR_ASSIGN "^="
+	ADD "+" 
+	SUB "-"
+	MUL "*"
+	DIV "/"
+	MOD "%"
+	ADDADD "++"
+	SUBSUB "--"
+	EQL "=="
+	NEQ "!="
+	LSS "<"
+	GTR ">"
+	LEQ "<="
+	GEQ "=>"
+	NOT "!"
+	ANDAND "&&"
+	OROR "||"
+	LSH "<<"
+	RSH ">>"
+	REVERSE "~"
+	AND "&"
+	OR "|"
+	XOR "^"
+	DOT "."
+	ARROW "->"
+	SIZEOF "sizeof"
+	CAST "cast"
+	LPAREN "("
+	RPAREN ")"
+	LBRACKET "["
+	RBRACKET "]"
+	LBRACE "{"
+	RBRACE "}"
+;
 
 %left NOELSE
 %left ELSE
@@ -97,21 +143,22 @@
 %right POSITIVE NEGTIVE NOT REVERSE ADDRESS DEREF SIZEOF ADDADD SUBSUB CAST
 %left MEMBER RBRACKET RPAREN
 
-%type <ival> CONST RESTRICT VOLATILE TypeQualifier TypeQualifierList
-%type <scp_enum> STATIC EXTERN AUTO REGISTER StorageClassSpecifier
-%type <ival> STRUCT UNION RecordKeyword 
-%type <ival> DeclaratorPointer
+%type <TypeQualifierEnum> TypeQualifier 
+%type <int> TypeQualifierList
+%type <StorageClassSpecifierEnum> StorageClassSpecifier
+%type <RecordKeywordEnum> RecordKeyword 
+%type <std::list<int>> DeclaratorPointer
 
-%type <expr> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
-%type <expr> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
-%type <initializer> Initializer
+%type <Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%type <Expr*> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
+%type <Initializer*> Initializer
 
-%type <type> TypeSpecifier RecordSpecifier EnumSpecifier
-%type <qual_type> TypeExpr QualifiedTypeSpecifier
+%type <TypeSpecifier*> TypeSpecifier RecordSpecifier EnumSpecifier
+%type <QualifiedTypeSpecifier*> QualifiedTypeSpecifier
+%type <TypeExpr*> TypeExpr
+%type <Stmt*> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
 
-%type <stmt> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
-
-%type <node> TranslationUnit FunctionDefination ExtendDeclaration
+%type <Node*> TranslationUnit FunctionDefination ExtendDeclaration
 %type <decl> ObjectDeclaration TypeDefination
 %type <decl> ParameterDeclaration FieldDeclaration
 
@@ -162,6 +209,25 @@ ExtendDeclaration
 	| DeclStmt
 	{
 		$$ = $1;
+	}
+	;
+
+FunctionDefination
+	: FunctionDeclaration CompoundStmt
+	{
+		if (isa<FunctionalDeclarator*>($3))
+		{
+			$$ = new FunctionDefination($1,$2,$3,$4);
+		} else
+		{
+			diag_context->NewDiagMsg(@$,IllegalFunctionDefination,Declarator->Name());
+		}
+	}
+	;
+
+FunctionDeclaration
+	: StorageClassSpecifier QualifiedTypeSpecifier Declarator
+	{
 	}
 	;
 
@@ -423,13 +489,6 @@ TypeQualifierList
 	}
 	;
 
-FunctionDefination
-	: StorageClassSpecifier QualifiedTypeSpecifier Declarator CompoundStmt
-	{
-		$$ = new FunctionDefination($1,*$2,$3,$4);
-	}
-	;
-
 TypeSpecifier
 	: VOID
 	{
@@ -496,19 +555,16 @@ StorageClassSpecifier
 RecordSpecifier
 	: RecordKeyword Identifier LBRACE FieldDeclarationList RBRACE
 	{
-		$$ = context.TypeContext->NewStructType(*$2,$4);
+		current_context = *context.CurrentDeclContext;
+		$$ = new StructSpecifier(current_context,*$2,$4);
 	}
 	| RecordKeyword LBRACE FieldDeclarationList RBRACE
 	{
-		$$ = context.TypeContext->NewStructType($3);
+		$$ = new StructSpecifier(current_context,$3);
 	}
 	| RecordKeyword Identifier
 	{
-		auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$2));
-		if (decl)
-			$$ = decl->DeclType();
-		else
-			$$ = context.TypeContext->NewStructType(*$2);
+		$$ = new StructSpecifier(current_context,*$2);
 	}
 	;
 
@@ -554,7 +610,7 @@ EnumeratorList
 	}
 	| Enumerator
 	{
-		$$ = new std::list<Declarator*>();
+		$$ = new std::list<Enumerator*>();
 		$$->push_back($1);
 	}
 	;
