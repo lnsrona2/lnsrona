@@ -18,63 +18,72 @@ namespace C1
 		class DeclContext;
 		class Initializer;
 		class CompoundStmt;
+		class Stmt;
 		class Declarator;
 
-		template <typename T>
+		template <typename DeclarationType>
 		class Redeclarable
 		{
 		public:
-			typedef T DeclarationType;
-			class iterator
+			static const bool redeclarable = true;
+
+			const DeclarationType* prev() const { return m_pPrev; }
+			DeclarationType* prev() { return m_pPrev; }
+			const DeclarationType* next() const { return m_pNext; }
+			DeclarationType* next() { return m_pNext; }
+
+			const DeclarationType* first() const
 			{
-			public:
-				typedef std::bidirectional_iterator_tag iterator_category;
-				typedef T value_type;        // Type of element
-				//  iterator 'points
-				//  to'.
-				typedef size_t	size_type;         // Container index
-				//  type.
-				typedef size_t	difference_type;  // Container difference
-				//  type.
-				typedef value_type	*pointer;         // Type of a pointer to
-				//  element.
-				typedef const value_type *const_pointer;     // As above, but const.
-				typedef value_type	&reference;         // Type of a reference
-				//  to element.
-				typedef const value_type &const_reference;   // As above, but const.
+				DeclarationType* decl = this;
+				while (decl->prev()) decl = decl->prev();
+				return decl;
+			}
+			DeclarationType* first()
+			{
+				DeclarationType* decl = this;
+				while (decl->prev()) decl = decl->prev();
+				return decl;
+			}
+			const DeclarationType* last() const
+			{
+				DeclarationType* decl = this;
+				while (decl->next()) decl = decl->next();
+				return decl;
+			}
+			DeclarationType* last()
+			{
+				DeclarationType* decl = this;
+				while (decl->next()) decl = decl->next();
+				return decl;
+			}
+			DeclarationType* add_last(DeclarationType* new_decl)
+			{
+				auto decl = last();
+				decl->m_pNext = new_decl;
+				new_decl->m_pPrev = decl;
+			}
+			DeclarationType* add_first(DeclarationType* new_decl)
+			{
+				auto decl = first();
+				decl->m_pPrev = new_decl;
+				new_decl->m_pNext = decl;
+			}
 
-				iterator& operator++()
-				{
-					m_pEntity = m_pEntity->NextDecl();
+			size_t redefination_count() const
+			{
+				size_t count = 1;
+				DeclarationType* decl = this;
+				while (decl->next()) {
+					decl = decl->next();
+					count++;
 				}
-				iterator& operator--()
-				{
-					m_pEntity = m_pEntity->PrevDecl();
+				decl = this;
+				while (decl->prev()) {
+					decl = decl->prev();
+					count++;
 				}
-				iterator& operator++(int)
-				{
-					m_pEntity = m_pEntity->NextDecl();
-				}
-				iterator& operator--(int)
-				{
-					m_pEntity = m_pEntity->PrevDecl();
-				}
-			private:
-				T* m_pEntity;
-			};
-
-
-			bool HasNextDecl() const;
-			bool HasPrevDecl() const;
-			const DeclarationType* PrevDecl() const;
-			DeclarationType* PrevDecl();
-			const DeclarationType* NextDecl() const;
-			DeclarationType* NextDecl();
-
-			const DeclarationType* FirstDecl() const;
-			DeclarationType* FirstDecl();
-			const DeclarationType* LastDecl() const;
-			DeclarationType* LastDecl();
+				return count;
+			}
 		protected:
 			DeclarationType *m_pPrev, *m_pNext;
 		};
@@ -91,6 +100,33 @@ namespace C1
 				DECL_TYPEDEF,
 				DECL_RECORD,
 			};
+
+			const KindEnum Kind() const
+			{
+				return m_kind;
+			}
+
+			// get the semantic affiliation of this declaration
+			const DeclContext* Affiliation() const;
+			DeclContext* Affiliation();
+			void SetAffiliation(DeclContext*);
+
+			virtual ~Declaration() = 0;
+
+			static bool CheckCompatible(Declaration* lsh, Declaration* rhs);
+		protected:
+			void SetKind(KindEnum kind)
+			{
+				m_kind = kind;
+			}
+
+			KindEnum m_kind;
+			DeclContext* m_Affiliation;
+		};
+
+		class NamedDeclaration : public Declaration
+		{
+		public:
 			const std::string& Name() const
 			{
 				return m_name;
@@ -99,31 +135,12 @@ namespace C1
 			{
 				m_name = name;
 			}
-
-			const KindEnum Kind() const
-			{
-				return m_kind;
-			}
-			void SetKind(KindEnum kind)
-			{
-				m_kind = kind;
-			}
-
-			const DeclContext* DeclarationContext() const;
-
-			virtual ~Declaration() = 0;
 		protected:
-			KindEnum m_kind;
 			std::string m_name;
-		};
-
-		class NamedDeclaration : public Declaration
-		{
-		public:
 
 		};
 
-		class ValueDeclaration : public Declaration
+		class ValueDeclaration : public NamedDeclaration
 		{
 		public:
 			const Type* DeclType() const;
@@ -131,23 +148,16 @@ namespace C1
 			StorageClassSpecifierEnum StorageClassSpecifier() const;
 		};
 
-		//class ParameterDeclaration : public Declaration
-		//{
-		//public:
-		//	ParameterDeclaration(QualType qual_type, Declarator* declarator);
-		//	const Type* DeclType() const;
-		//	bool IsNamed() const;
-		//	//const Expr* DefaultValue() const;
-		//};
-
-		class VariableDeclaration : public ValueDeclaration, Redeclarable<VariableDeclaration>
+		// represent a local/global variable
+		class VariableDeclaration : public ValueDeclaration//, Redeclarable<VariableDeclaration>
 		{
 		public:
 			VariableDeclaration(StorageClassSpecifierEnum storage_class_specifier, QualType qual_type, Declarator* p_declarator);
 			const Initializer* InitializeExpr() const;
 		};
 
-		class FieldDeclaration : public ValueDeclaration, Redeclarable<FieldDeclaration>
+		// Represent a struct field
+		class FieldDeclaration : public ValueDeclaration//, Redeclarable<FieldDeclaration>
 		{
 		public:
 			static const size_t	Offset_Auto = -1;
@@ -157,15 +167,11 @@ namespace C1
 			const size_t Offset() const;
 		};
 
-		class FunctionDeclaration : public ValueDeclaration, Redeclarable<FunctionDeclaration>
-		{
-		public:
-			FunctionDeclaration(StorageClassSpecifierEnum storage_class_specifier, QualType qual_type, Declarator* p_declarator);
-			const QualType ReturnType() const;
-		};
+		// Represent a function declaration
+		class FunctionDeclaration;
 
 
-		class TypeDeclaration : public Declaration
+		class TypeDeclaration : public NamedDeclaration
 		{
 		public:
 			const Type* DeclType() const;
@@ -175,7 +181,7 @@ namespace C1
 			Type* m_type;
 		};
 
-		class TypedefDeclaration : public TypeDeclaration, Redeclarable<TypedefDeclaration>
+		class TypedefDeclaration : public TypeDeclaration//, Redeclarable<TypedefDeclaration>
 		{
 		public:
 			TypedefDeclaration(QualType qual_type, Declarator* p_declarator);

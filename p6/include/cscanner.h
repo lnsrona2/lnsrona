@@ -13,23 +13,37 @@
 //	yycolumn += yyleng;
 // Include Bison for types / tokens
 #include "c1.tab.hpp"
+#include "ast_context.h"
 
 
 namespace C1 {
 	class FlexScanner : public yyFlexLexer {
 	public:
+		typedef C1::BisonParser::symbol_type symbol_type;
+		typedef C1::BisonParser::token_type token_type;
+		typedef C1::BisonParser::location_type location_type;
 		// save the pointer to yylval so we can change it, and invoke scanner
-		int yylex(C1::BisonParser::semantic_type * pVal,C1::BisonParser::location_type * pLoc)
+
+		FlexScanner(std::istream* pInput, std::ostream* pOutput = nullptr , AST::ASTContext* pContext = nullptr)
+			: yyFlexLexer(pInput, pOutput)
 		{
-			int retval;
-			yylval = pVal;
-			yylloc = pLoc;
-			retval = yylex();
-			//pLoc->begin.line = pLoc->end.line = yylineno;
-			//pLoc->begin.column = yycolumn;
-			//pLoc->end.column = yycolumn + yyleng - 1;
-			//yycolumn += yyleng;
-			return retval;
+			this->pContext = pContext;
+		}
+
+		inline symbol_type NextToken()
+		{
+			yylex();
+			return current_symbol;
+		}
+
+		void SetASTContext(const AST::ASTContext* context)
+		{
+			this->pContext = context;
+		}
+
+		const AST::ASTContext* GetASTContext() const
+		{
+			return pContext;
 		}
 
 	private:
@@ -37,10 +51,12 @@ namespace C1 {
 		// of the overloaded method so we can get a pointer to Bison's yylval
 		int yylex();
 
-		// point to yylval (provided by Bison in overloaded yylex)
+		// for access the current building AST's information
+		// more specifically , the current DeclContext for classify identifiers
+		const AST::ASTContext* pContext;
 		std::string	yycomment;
-		C1::BisonParser::semantic_type * yylval;
-		C1::BisonParser::location_type * yylloc;
+		symbol_type current_symbol;
+		location_type loc;
 		unsigned int yycolumn;
 	};
 }

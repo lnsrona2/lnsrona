@@ -8,46 +8,32 @@
 #include <list>
 #include <memory>
 #include <array>
-#include "location.hh"
+#include "../src/location.hh"
+#include "ast_context.h"
 #include "type.h"
 #include "declaration.h"
 #include "operators.h"
 
 namespace C1
 {
-	class Type;
-	class DeclContext;
-
 
 	namespace AST
 	{
+		class Type;
+		class DeclContext;
+		class Enumerator;
+		class QualifiedTypeSpecifier;
+
 		template <typename TargetType, typename SourceType>
 		bool isa(typename SourceType* var)
 		{
-			static_assert(std::is_pointer<TargetType>::value);
-			TargetType ptr = dynamic_cast<TargetType> var;
+			//static_assert(std::is_pointer<TargetType>::value);
+			TargetType ptr = dynamic_cast<TargetType>(var);
 			return ptr != nullptr;
 		};
 
 		class TranslationUnit;
 		// Storage nesseary "global" context value for building AST
-		struct ASTContext
-		{
-		public:
-			// The current translation unit
-			TranslationUnit* CurrentTranslationUnit;
-			// Storage the current working scope , the comming declaration is stored in it
-			DeclContext*	CurrentDeclContext;
-			// The type context object for creating and retriving predefined types
-			TypeContext*	TypeContext;
-			// The name of the current working source file
-			std::string		FileName;
-			// The input stream for source file
-			std::istream&	SourceFile;
-			// Storage the qualified type for declarations.
-			QualType		CurrentQualifiedType;
-			
-		};
 		// Represent a literal entity in the code document's AST
 		// example 
 		// TypeSpecifier is a Node , but not the true under hood Type here.
@@ -67,10 +53,11 @@ namespace C1
 			Node* Parent();
 			void SetParent(Node*);
 
-			//virtual const std::list<const Node*> Children() const = 0;
-			//virtual std::list<Node*> Children() = 0;
+			const Node* NextNode() const;
+			const Node* PrevNode() const;
 
-			virtual std::string ToString() const/* = 0*/;
+			std::string ToString() const/* = 0*/;
+			virtual void Dump(std::ostream& ostr);
 
 			virtual ~Node() = 0;
 		private:
@@ -106,9 +93,16 @@ namespace C1
 		public:
 			const Type* ReturnType() const;
 			ExprValueType ValueType() const;
+			bool HasSideEffect() const;
 
 			template <typename value_type>
 			value_type Evaluate() const;
+		};
+
+		class PosfixExpr : public Expr
+		{
+		public:
+			PosfixExpr(OperatorsEnum op, Expr* Base);
 		};
 
 		class CallExpr : public Expr
@@ -124,7 +118,7 @@ namespace C1
 				return m_Callee;
 			}
 
-			CallExpr(Node* , std::list<std::unique_ptr<Expr>>&&);
+			CallExpr(Node* , std::list<Expr*>*);
 		private:
 			Expr* m_Callee;
 			std::list<std::unique_ptr<Expr>> m_ArgumentList;
@@ -133,12 +127,21 @@ namespace C1
 		class DeclRefExpr : public Expr
 		{
 		public:
+			DeclRefExpr(const std::string &name);
 			const Declaration* Declaration() const;
+		};
+
+		class ParenExpr : public Expr
+		{
+		public:
+			ParenExpr(Expr* base);
+			Expr* Base();
 		};
 
 		class UnaryExpr : public Expr
 		{
 		public:
+			UnaryExpr(OperatorsEnum op, Expr* sub_expr);
 			const Expr* SubExpr() const;
 			OperatorsEnum Operator() const;
 		private:
@@ -148,6 +151,7 @@ namespace C1
 		class BinaryExpr : public Expr
 		{
 		public:
+			BinaryExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 			const std::array<Expr*, 2>& SubExprs() const;
 			const Expr* LeftSubExpr() const;
 			const Expr* RightSubExpr() const;
@@ -156,91 +160,122 @@ namespace C1
 			std::array<Expr*, 2> m_SubExprs;
 		};
 
-		class AssignExpr : public Expr
+		class AssignExpr : public BinaryExpr
 		{
 		public:
-			const Expr* Value() const;
-			const Expr* Assignee() const;
+			AssignExpr(Expr* lhs, Expr* rhs);
+			AssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+			// return OP_ASGN if is OP_ASGN itself
+			const OperatorsEnum PrefixedOperator() const;
 		};
 
 		class IndexExpr : public BinaryExpr
 		{
 		public:
-
+			IndexExpr(Expr* host_expr, Expr* index_expr);
 		};
 
-		class CompoundAssignExpr : public AssignExpr
-		{
-		public:
-			const OperatorsEnum Operator() const;
-		};
 
 		class ArithmeticExpr : public BinaryExpr
 		{
 		public:
+			ArithmeticExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 
 		};
 
 		class LogicExpr : public BinaryExpr
 		{
 		public:
-
+			LogicExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 		};
 
 		class ConditionalExpr : public Expr
 		{
 		public:
+			ConditionalExpr(Expr* condition, Expr* true_expr, Expr* false_expr);
 			const Expr* Condition() const;
 			const Expr* TrueExpr() const;
 			const Expr* FalseExpr() const;
+		};
 
-			ConditionalExpr(Expr* condition, Expr* true_expr, Expr* flase_expr);
+		class TypeExpr : public Node
+		{
+		public:
+			TypeExpr(QualifiedTypeSpecifier* qual_type_specifier, Declarator* declarator);
+			QualifiedTypeSpecifier* QualifiedTypeSpecifier();
+			Declarator*	Declarator();
+			QualType DeclType() const;
+		};
+
+		class SizeofExpr : public Expr
+		{
+		public:
+			SizeofExpr(Expr* expr);
+		};
+
+		class SizeofTypeExpr : public Expr
+		{
+		public:
+			SizeofTypeExpr(TypeExpr* type_expr);
 		};
 
 		class MemberExpr : public Expr
 		{
 		public:
+			MemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op);
 			const Expr* Host() const;
-			const Node* Member() const; //Incomplete
-
-			MemberExpr(Expr* host,Node* Member);
+			const FieldDeclaration* Member() const; //Incomplete
+			// "." is direct member operator
+			// "->" is indirect member operator
+			bool IsDirect() const;
 		};
+
 		class CastExpr : public Expr
 		{
 		public:
 			const Expr* SourceExpr() const;
-			const Type* TargetType() const;
-			const Node* ConversionFunction() const;
+			const QualType TargetType() const;
+			const FunctionDeclaration* ConversionFunction() const;
 		};
-		class ImplicitCastExpr : CastExpr
+		class ImplicitCastExpr : public CastExpr
 		{
 		public:
-			ImplicitCastExpr(Expr* source_expr, const Type* target_type);
-		};
-		class ExplicitCastExpr : CastExpr
-		{
-		public:
-			ExplicitCastExpr(Expr* source_expr, const Type* target_type, const Node* conversion_function = nullptr);
+			ImplicitCastExpr(const Type* target_type, Expr* source_expr);
 		};
 
-		class StringLiteral : public Expr
+		class ExplicitCastExpr : public CastExpr
 		{
 		public:
+			ExplicitCastExpr(TypeExpr* target_type_expr, Expr* source_expr);
+		};
+
+		class ConstantLiteralExpr : public Expr
+		{};
+
+		class StringLiteral : public ConstantLiteralExpr
+		{
+		public:
+			explicit StringLiteral(const char* raw_str);
 			const std::string& Value() const;
 		};
-		class IntegerLiteral : public Expr
+		class IntegerLiteral : public ConstantLiteralExpr
 		{
 		public:
+			explicit IntegerLiteral(int value, size_t decimal = 10, bool is_signed = true);
+			explicit IntegerLiteral(const char* raw_str);
 			const int Value() const;
 		};
-		class FloatLiteral : public Expr
+		class FloatLiteral : public ConstantLiteralExpr
 		{
 		public:
+			explicit FloatLiteral(float value, bool is_double = false);
+			explicit FloatLiteral(const char* raw_str);
 			const float Value() const;
 		};
-		class CharacterLiteral : public Expr
+		class CharacterLiteral : public ConstantLiteralExpr
 		{
 		public:
+			explicit CharacterLiteral(const char* raw_str);
 			const char Value() const;
 		};
 
@@ -255,29 +290,71 @@ namespace C1
 		class InitializerList : public Initializer ,public std::list<Initializer*>
 		{
 		public:
-			explicit InitializerList(std::list<Initializer*>&& list);
-			explicit InitializerList(const std::list<Initializer*>& list);
+			explicit InitializerList(std::list<Initializer*>* list);
+			explicit InitializerList(const std::list<Initializer*>* list);
+		};
+
+		class CommaExpr : public BinaryExpr
+		{
+		public:
+			CommaExpr(Expr* lhs, Expr* rhs);
 		};
 
 		class Stmt : public Node
 		{
 		public:
 		};
-		class CompoundStmt : public Stmt
+
+		// it's a simple ";"
+		class NullStmt : public Stmt
+		{
+		public :
+			NullStmt();
+		};
+
+		// wrap an declaration into an statement
+		class DeclStmt : public Stmt
+		{
+
+		};
+
+		class CompoundStmt : public Stmt , public DeclContext
 		{
 		public:
+			explicit CompoundStmt(std::list<Stmt*>*);
 			const std::list<Stmt*>& SubStmts() const;
 			const DeclContext* DeclarationContext() const;
 		};
 		class ExprStmt : public Stmt
 		{
 		public:
+			explicit ExprStmt(Expr* expr);
 			const Expr* Expression() const;
+			Expr* Expression();
+			void SetExpression(Expr* expr);
 		};
 		class ReturnStmt : public Stmt
 		{
 		public:
+			explicit ReturnStmt(Expr* return_expr = nullptr);
 			const Expr* ReturnExpr() const;
+		};
+
+		class ContinueStmt : public Stmt
+		{
+		public:
+			ContinueStmt();
+		};
+
+		class BreakStmt : public Stmt
+		{
+		public:
+			BreakStmt();
+
+		};
+
+		class CaseLabel : public Stmt
+		{
 		};
 
 		class IterationStmt : public Stmt
@@ -289,76 +366,32 @@ namespace C1
 		class WhileStmt : public IterationStmt
 		{
 		public:
+			WhileStmt(Expr* condition, Stmt* action);
 			const Expr* Condition() const;
 		};
 
 		class ForStmt : public IterationStmt
 		{
 		public:
+			ForStmt(Stmt* initialize_stmt, Expr* condition, Stmt* post_action, Stmt* action);
 			const Stmt* Initializer() const;
 			const Expr* Condition() const;
 			const Expr* PostAction() const;
 		};
 
+		class DoWhileStmt : public IterationStmt
+		{
+		public:
+			DoWhileStmt(Stmt* action, Expr* condition);
+		};
+
 		class IfStmt : public Stmt
 		{
 		public:
+			IfStmt(Expr* condition, Stmt* then_action, Stmt* else_action = nullptr);
 			const Expr* Condition() const;
 			const Stmt* Then() const;
 			const Stmt* Else() const;
-		};
-
-		class QualifiedTypeSpecifier : Node
-		{
-		public:
-			QualifiedTypeSpecifier(int, TypeSpecifier*);
-			int Qualifiers() const;
-			TypeSpecifier* TypeSpecifier() const;
-			QualType DeclQualType() const;
-		};
-
-		class VarDeclStmt : public Stmt
-		{
-		public:
-			StorageClassSpecifierEnum StorageClassSpecifier() const;
-			const TypeSpecifier* DeclTypeSpecifier() const;
-			const std::list<Declarator*>& DeclaratorList() const;
-		};
-
-		class FunctionDefination : public Node
-		{
-		public:
-			FunctionDefination(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier qualified_type_specifier, Declarator* declarator, Stmt* body);
-			StorageClassSpecifierEnum StorageClassSpecifier() const;
-			const TypeSpecifier* DeclTypeSpecifier() const;
-			Declarator* Declarator() const;
-
-			DeclContext* ParameterList() const;
-			const Stmt* Body() const;
-		};
-
-		class TypeExpr : public Node
-		{
-		public:
-			QualifiedTypeSpecifier* QualifiedTypeSpecifier();
-			Declarator*	Declarator();
-			QualType DeclType() const;
-		};
-
-		// Represent an Parameter Declaration
-		// Literal & Semantic Entity
-		// Parameter's Declaration is not ambiguous , we can unify the literal and semantic entity
-		class ParameterDeclaration : public Node , public Declaration
-		{
-		public:
-			QualifiedTypeSpecifier* QualifiedTypeSpecifier();
-			Declarator*	Declarator();
-		};
-
-		class StructDefination : public Node , public DeclContext
-		{
-		public:
-
 		};
 
 		class TypeSpecifier : public Node
@@ -371,32 +404,138 @@ namespace C1
 		class PrimaryTypeSpecifier : public TypeSpecifier
 		{
 		public:
+			PrimaryTypeSpecifier(Type*);
 			std::string ToString() const;
 		};
 
-		class StructTypeSpecifier : public TypeSpecifier
+		class StructSpecifier : public TypeSpecifier
 		{
 		public:
+			StructSpecifier(const std::string& name, StructBody* defination);
+			StructSpecifier(const std::string& name);
+			StructSpecifier(StructBody* defination);
 			bool HasName() const;
 			bool HasDefination() const;
 			const std::string & Name() const;
-			StructDefination* Defination() const;
+			StructBody* Defination() const;
 		};
 
 
-
-		class Enumerator : public Node
+		class EnumSpecifier : public TypeSpecifier
 		{
 		public:
-			explicit Enumerator(const std::string &name, Expr* value_expr = nullptr);
-			const std::string& Name() const;
-			const Expr* Value() const;
+			EnumSpecifier(const std::string& name, std::list<Enumerator*>* defination);
+			EnumSpecifier(std::list<Enumerator*>* defination);
+			EnumSpecifier(const std::string& name);
+		};
+
+		class TypedefNameSpecifier : public TypeSpecifier
+		{
+		public:
+			TypedefNameSpecifier(const std::string& name);
+		};
+
+		class QualifiedTypeSpecifier : Node
+		{
+		public:
+			QualifiedTypeSpecifier(int, TypeSpecifier*);
+			int Qualifiers() const;
+			TypeSpecifier* TypeSpecifier() const;
+			QualType DeclQualType() const;
+		};
+
+		template <typename T>
+		class CompoundDeclaration
+		{
+			const TypeSpecifier* DeclTypeSpecifier() const;
+			const std::list<Declarator*>& DeclaratorList() const;
+			const std::list<T*> Declarations() const;
+		};
+
+		class VarDeclStmt : public DeclStmt, public CompoundDeclaration<ValueDeclaration>
+		{
+		public:
+			VarDeclStmt(StorageClassSpecifierEnum, QualifiedTypeSpecifier*, std::list<Declarator*>*);
+			StorageClassSpecifierEnum StorageClassSpecifier() const;
+		};
+
+		class TypedefStmt : public DeclStmt, public CompoundDeclaration<TypeDeclaration>
+		{
+		public:
+			TypedefStmt(QualifiedTypeSpecifier*, std::list<Declarator*>*);
+		};
+
+		class FieldDeclStmt : public DeclStmt, public CompoundDeclaration<FieldDeclaration>
+		{
+		public:
+			FieldDeclStmt(QualifiedTypeSpecifier*, std::list<Declarator*>*);
+		};
+
+		class FunctionDeclaration : public Node, public ValueDeclaration, public Redeclarable<FunctionDeclaration>
+		{
+		public:
+			FunctionDeclaration(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier *qualified_type_specifier, Declarator* declarator);
+
+			StorageClassSpecifierEnum StorageClassSpecifier() const { return m_storage_specifier; }
+			const TypeSpecifier* DeclTypeSpecifier() const { return m_type_specifier.get(); }
+			Declarator* GetDeclarator() const { return m_declarator.get(); }
+
+			Stmt* Defination()  { return m_defination.get(); }
+			void SetDefination(Stmt* def) { m_defination.reset(def); }
+			Stmt* LatestDefination()
+			{
+				auto func = this;
+				while (!func->Defination())
+				{
+					func = func->prev();
+				}
+				return func->Defination();
+			}
+
+			ParameterList& ParameterList();
+			QualType& ReturnType();
+		protected:
+			//Literal entities
+			StorageClassSpecifierEnum		m_storage_specifier;
+			std::unique_ptr<TypeSpecifier>	m_type_specifier;
+			std::unique_ptr<Declarator>		m_declarator;
+			std::unique_ptr<Stmt>			m_defination;
+		};
+
+		// A simple declaration container for parameters
+		class ParameterList : public Node, public DeclContext
+		{
+			ParameterList();
+		};
+
+		// Represent an Parameter Declaration
+		// Literal & Semantic Entity
+		// Parameter's Declaration is not ambiguous , we can unify the literal and semantic entity
+		class ParameterDeclaration : public Node , public Declaration
+		{
+		public:
+			ParameterDeclaration(QualifiedTypeSpecifier*, Declarator*);
+			QualifiedTypeSpecifier* QualifiedTypeSpecifier();
+			Declarator*	Declarator();
+		};
+
+		class StructBody : public Node, public DeclContext
+		{
+		public:
+			StructBody(std::list<FieldDeclStmt*>*);
 		};
 
 		class Declarator : public Node
 		{
 		public:
-			bool IsAbstract() const;
+			// The most "basic" declarator of this declarator
+			Declarator* Atom();
+			// The base declarator of this declarator
+			// return nullptr if it's already the deepest layer
+			Declarator* Base();
+		protected:
+			Declarator(Declarator* base);
+			Declarator* m_base;
 		};
 
 		class InitDeclarator : public Declarator
@@ -423,7 +562,7 @@ namespace C1
 		class PointerDeclarator : public Declarator
 		{
 		public:
-			PointerDeclarator(int qualfier_mask, Declarator* base);
+			PointerDeclarator(std::list<int>* qualfier_mask_list, Declarator* base);
 			const Declarator* Base() const;
 			unsigned QualifierMask() const;
 		};
@@ -439,10 +578,26 @@ namespace C1
 		class FunctionalDeclarator : public Declarator
 		{
 		public:
-			FunctionalDeclarator(Declarator* base, std::list<Declaration*>* param_list);
+			FunctionalDeclarator(Declarator* base, std::list<ParameterDeclaration*>* param_list);
 			const Declarator* Base() const;
 			const std::list<ParameterDeclaration*>& ParameterList() const;
 		};
+
+		class FieldDeclarator : public Declarator
+		{
+		public:
+			FieldDeclarator(Declarator* base, Expr* offset = nullptr);
+			FieldDeclarator(Expr* offset);
+		};
+
+		class Enumerator : public Declarator
+		{
+		public:
+			explicit Enumerator(const std::string &name, Expr* value_expr = nullptr);
+			const std::string& Name() const;
+			const Expr* Value() const;
+		};
+
 
 	}
 

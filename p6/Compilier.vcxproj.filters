@@ -33,6 +33,9 @@
     <ClCompile Include="src\driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\decl_context.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\errcfg.h">
@@ -59,18 +62,6 @@
     <ClInclude Include="include\cparser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\location.hh">
-      <Filter>Generated Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\position.hh">
-      <Filter>Generated Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\stack.hh">
-      <Filter>Generated Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\c1.tab.hpp">
-      <Filter>Generated Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\type.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -87,6 +78,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\decl_context.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\c1.tab.hpp">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\location.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\position.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stack.hh">
+      <Filter>Generated Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\type_qualifiers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

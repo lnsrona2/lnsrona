@@ -1,19 +1,29 @@
 #pragma once
 #include "cscanner.h"
+#include "error.h"
+#include "ast.h"
 
 namespace C1 {
 	class BisonParser;
 
 	class Parser {
 	public:
-		Parser() : parser(scanner) {}
+		Parser(std::istream& input, const std::string& file_name)
+			: scanner(&input, nullptr, &ast_context), parser(ast_context, scanner)
+		{
+			ast_context.FileName = file_name;
+			ast_context.SourceFile = &input;
+		}
 
-		int parse() {
-			return parser.parse();
+		AST::TranslationUnit* parse() {
+			parser.parse();
+			return ast_context.CurrentTranslationUnit;
 		}
 
 	private:
-		C1::FlexScanner scanner;
-		C1::BisonParser parser;
+		Diagnostics::MessageContext diag_context;
+		AST::ASTContext ast_context;
+		FlexScanner scanner;
+		BisonParser parser;
 	};
 }

@@ -5,29 +5,15 @@
 #include <list>
 #include <string>
 #include "decl_context.h"
+#include "type_qualifiers.h"
 
 namespace C1
 {
-	enum StorageClassSpecifierEnum
-	{
-		SCS_EXTERN,
-		SCS_STATIC,
-		SCS_AUTO,
-		SCS_REGISTER,
-		SCS_NONE,
-	};
-
-	enum TypeQualifierEnum
-	{
-		CONST = 0x1,
-		RESTRIC = 0x2,
-		VOLATILE = 0x4,
-	};
-
 	namespace AST
 	{
 		class DeclContext;
 		class RecordDeclaration;
+		class StructBody;
 		class Declaration;
 		class Declarator;
 
@@ -86,7 +72,7 @@ namespace C1
 			}
 			bool IsRestrict() const
 			{
-				return (m_qulifier_mask & TypeQualifierEnum::RESTRIC) != 0;
+				return (m_qulifier_mask & TypeQualifierEnum::RESTRICT) != 0;
 			}
 			bool IsVolatile() const
 			{
@@ -163,7 +149,7 @@ namespace C1
 
 		class RecordType : public Type
 		{
-			StructDefination* Defination();
+			StructBody* Defination();
 		};
 
 		class StructType : public RecordType

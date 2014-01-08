@@ -14,13 +14,7 @@ all: $(SRC)/c1.tab.cpp $(SRC)/c1.lex.cpp
 
 $(SRC)/c1.tab.cpp : $(CONF)/c1.y
 	$(YACC) -o $(SRC)/c1.tab.cpp $(CONF)/c1.y
-	$(MOV) src\c1.tab.hpp include\
 
-	$(MOV) src\position.hh include\
-
-	$(MOV) src\location.hh include\
-
-	$(MOV) src\stack.hh include\
 
 
 $(SRC)/c1.lex.cpp : $(CONF)/c1.lex
@@ -30,7 +24,7 @@ clean:
 	$(DEL) $(SRC)\c1.lex.cpp
 	$(DEL) $(SRC)\c1.tab.cpp
 	$(DEL) $(SRC)\c1.output
-	$(DEL) $(INC)\c1.tab.hpp
-	$(DEL) $(INC)\position.hh
-	$(DEL) $(INC)\location.hh
-	$(DEL) $(INC)\stack.hh
+	$(DEL) $(SRC)\c1.tab.hpp
+	$(DEL) $(SRC)\position.hh
+	$(DEL) $(SRC)\location.hh
+	$(DEL) $(SRC)\stack.hh

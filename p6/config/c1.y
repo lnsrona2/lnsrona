@@ -27,7 +27,8 @@
 
 %code {
 	// Prototype for the yylex function
-	static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext&, C1::FlexScanner &scanner);
+	//static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext&, C1::FlexScanner &scanner);
+	static C1::BisonParser::symbol_type yylex(C1::AST::ASTContext&, C1::FlexScanner &scanner);
 	static int debug(const char* message)
 	{
 		return printf(message);
@@ -38,7 +39,7 @@
 
 %locations
 %token 
-	END_OF_FILE "eof"
+	END "eof"
 	WHILE "while"
 	IF "if"
 	ELSE "else"
@@ -77,10 +78,10 @@
 	ENUM "enum"
 	;
 
-%token <Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%token <AST::Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
 %token <std::string> NewIdentifier ObjectIdentifier TypeIdentifier
 
-$token <OperatorsEnum>
+%token <OperatorsEnum>
 	ASSIGN "="
 	MUL_ASSIGN "*="
 	ADD_ASSIGN "+="
@@ -118,6 +119,9 @@ $token <OperatorsEnum>
 	ARROW "->"
 	SIZEOF "sizeof"
 	CAST "cast"
+;
+
+%token
 	LPAREN "("
 	RPAREN ")"
 	LBRACKET "["
@@ -147,43 +151,38 @@ $token <OperatorsEnum>
 %type <int> TypeQualifierList
 %type <StorageClassSpecifierEnum> StorageClassSpecifier
 %type <RecordKeywordEnum> RecordKeyword 
-%type <std::list<int>> DeclaratorPointer
 
-%type <Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
-%type <Expr*> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
-%type <Initializer*> Initializer
+%type <AST::Expr*> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
+%type <AST::Initializer*> Initializer
 
-%type <TypeSpecifier*> TypeSpecifier RecordSpecifier EnumSpecifier
-%type <QualifiedTypeSpecifier*> QualifiedTypeSpecifier
-%type <TypeExpr*> TypeExpr
-%type <Stmt*> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
+%type <AST::TypeSpecifier*> TypeSpecifier RecordSpecifier EnumSpecifier
+%type <AST::QualifiedTypeSpecifier*> QualifiedTypeSpecifier
+%type <AST::TypeExpr*> TypeExpr
+%type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
 
-%type <Node*> TranslationUnit FunctionDefination ExtendDeclaration
-%type <decl> ObjectDeclaration TypeDefination
-%type <decl> ParameterDeclaration FieldDeclaration
+%type <AST::Node*> TranslationUnit FunctionDefination ExtendDeclaration
+%type <AST::FunctionHeader*> FunctionHeader
+%type <AST::StructBody*> StructBody;
+%type <AST::VarDeclStmt*> ObjectDeclaration
+%type <AST::TypedefStmt*> TypeDefination
+%type <AST::ParameterDeclaration*> ParameterDeclaration
+%type <AST::FieldDeclStmt*> FieldDeclaration
 
-%type <declarator> Declarator DirectDeclarator AbstractDeclarator DirectAbstractDeclarator InitDeclarator FieldDeclarator Enumerator
+%type <AST::Declarator*> Declarator DirectDeclarator AbstractDeclarator DirectAbstractDeclarator InitDeclarator FieldDeclarator
+%type <AST::Enumerator*> Enumerator
 
-%type <str> TypeIdentifier ObjectIdentifier NewIdentifier Identifier 
+%type <std::string> Identifier 
 
-%type <initializer_list> InitializerList 
-%type <declarator_list> DeclaratorList EnumeratorList InitDeclaratorList FieldDeclaratorList
-%type <decl_list> ParameterList FieldDeclarationList
-%type <stmt_list> StmtList
-%type <expr_list> ArgumentList
+%type <std::list<int>*> DeclaratorPointer
+%type <std::list<AST::Initializer*>*> InitializerList 
+%type <std::list<AST::Declarator*>*> DeclaratorList InitDeclaratorList FieldDeclaratorList
+%type <std::list<AST::Enumerator*>*> EnumeratorList
+%type <std::list<AST::ParameterDeclaration*>*> ParameterList
+%type <std::list<AST::FieldDeclStmt*>*> FieldDeclarationList
+%type <std::list<AST::Stmt*>*> StmtList
+%type <std::list<AST::Expr*>*> ArgumentList
 
-%type <op_enum> AssignOperator UnaryOperator
-%type <op_enum> ASSIGN MUL_ASSIGN ADD_ASSIGN DIV_ASSIGN SUB_ASSIGN AND_ASSIGN OR_ASSIGN LSH_ASSIGN RSH_ASSIGN MOD_ASSIGN XOR_ASSIGN
-%type <op_enum> ADD SUB MUL DIV MOD
-%type <op_enum> ADDADD SUBSUB
-%type <op_enum> EQL NEQ LSS GTR LEQ GEQ
-%type <op_enum> NOT ANDAND OROR
-%type <op_enum> LSH RSH REVERSE AND OR XOR
-%type <op_enum> DOT ARROW
-%type <op_enum> SIZEOF
-
-
-
+%type <OperatorsEnum> UnaryOperator AssignOperator
 
 %%
 %start TranslationUnit;
@@ -213,28 +212,30 @@ ExtendDeclaration
 	;
 
 FunctionDefination
-	: FunctionDeclaration CompoundStmt
+	: FunctionHeader CompoundStmt
 	{
-		if (isa<FunctionalDeclarator*>($3))
-		{
-			$$ = new FunctionDefination($1,$2,$3,$4);
-		} else
-		{
-			diag_context->NewDiagMsg(@$,IllegalFunctionDefination,Declarator->Name());
-		}
+		$$ = new FunctionDefination($1,$2);
 	}
 	;
 
-FunctionDeclaration
+FunctionHeader
 	: StorageClassSpecifier QualifiedTypeSpecifier Declarator
 	{
+		if (!isa<FunctionalDeclarator*>($3))
+		{
+			error(@3,"Expect a function declaration here.");
+		}
+		$$ = new FunctionHeader($1,$2,$3);
+		// We do this here because we FunctionHeader : ValueDeclaration
+		context.CurrentDeclContext->AddDeclaration($$);
 	}
 	;
 
 ObjectDeclaration
 	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList
 	{
-		for (auto declarator : *$3)
+		$$ = new VarDeclStmt($1,$2,$3);
+		/*for (auto declarator : *$3)
 		{
 			Declaration* decl;
 			if (isa<FunctionalDeclarator*>(declarator))
@@ -246,18 +247,19 @@ ObjectDeclaration
 				decl = new VariableDeclaration($1,*$2,declarator);
 			}
 			context.CurrentDeclContext->AddDeclaration(decl);
-		}
+		}*/
 	}
 	;
 
 TypeDefination
 	: TYPEDEF QualifiedTypeSpecifier DeclaratorList
 	{
-		for (auto declarator : *$3)
+		$$ = new TypedefStmt($2,$3);
+		/*for (auto declarator : *$3)
 		{
 			auto decl = new TypedefDeclaration(*$2,declarator);
 			context.CurrentDeclContext->AddDeclaration(decl);
-		}
+		}*/
 	}
 	;
 
@@ -271,7 +273,6 @@ DeclaratorList
 	{
 		$$ = new std::list<Declarator*>();
 		$$->push_back($1);
-
 	}
 	;
 
@@ -290,7 +291,7 @@ Declarator
 DirectDeclarator
 	: Identifier
 	{
-		$$ = new IdentifierDeclarator(*$1);
+		$$ = new IdentifierDeclarator($1);
 		$$->SetLocation(@$);
 	}
 	| LPAREN Declarator RPAREN
@@ -352,12 +353,12 @@ Initializer
 	}
 	| LBRACE InitializerList RBRACE
 	{
-		$$ = new InitializerList(std::move(*$2));
+		$$ = new InitializerList($2);
 		$$->SetLocation(@$);
 	}
 	| LBRACE InitializerList COMMA RBRACE
 	{
-		$$ = new InitializerList(std::move(*$2));
+		$$ = new InitializerList($2);
 		$$->SetLocation(@$);
 	}
 	;
@@ -443,7 +444,7 @@ ParameterList
 	}
 	| ParameterDeclaration
 	{
-		$$ = new std::list<Declaration*>();
+		$$ = new std::list<ParameterDeclaration*>();
 		$$->push_back($1);
 	}
 	;
@@ -451,30 +452,34 @@ ParameterList
 ParameterDeclaration
 	: QualifiedTypeSpecifier Declarator
 	{
-		$$ = new ParameterDeclaration(*$1,$2);
+		$$ = new ParameterDeclaration($1,$2);
 	}
 	| QualifiedTypeSpecifier AbstractDeclarator
 	{
-		$$ = new ParameterDeclaration(*$1,$2);
+		$$ = new ParameterDeclaration($1,$2);
+	}
+	| QualifiedTypeSpecifier
+	{
+		$$ = new ParameterDeclaration($1,nullptr);
 	}
 	;
 
 DeclaratorPointer
 	: MUL TypeQualifierList
 	{
-		$$ = $2;
+		$$ = new std::list<int>();
+		$$->push_back($2);
 	}
 	| DeclaratorPointer MUL TypeQualifierList
 	{
-		$$ <<= 3;
-		$$ |= $3;
+		$$->push_back($3);
 	}
 	;
 
 QualifiedTypeSpecifier
 	: TypeQualifierList TypeSpecifier
 	{
-		$$ = new QualType($2,$1);
+		$$ = new QualifiedTypeSpecifier($1,$2);
 	}
 	;
 
@@ -492,15 +497,15 @@ TypeQualifierList
 TypeSpecifier
 	: VOID
 	{
-		$$ = context.TypeContext->Void();
+		$$ = new PrimaryTypeSpecifier(context.TypeContext->Void());
 	}
 	| INT
 	{
-		$$ = context.TypeContext->Int();
+		$$ = new PrimaryTypeSpecifier(context.TypeContext->Int());
 	}
 	| FLOAT
 	{
-		$$ = context.TypeContext->Float();
+		$$ = new PrimaryTypeSpecifier(context.TypeContext->Float());
 	}
 	| RecordSpecifier
 	{
@@ -512,9 +517,10 @@ TypeSpecifier
 	}
 	| TypeIdentifier
 	{
-		auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$1));
+		$$ = new TypedefNameSpecifier($1);
+		/*auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$1));
 		assert(decl != nullptr);
-		$$ = decl->DeclType();
+		$$ = decl->DeclType();*/
 	}
 	;
 
@@ -553,18 +559,59 @@ StorageClassSpecifier
 	;
 
 RecordSpecifier
-	: RecordKeyword Identifier LBRACE FieldDeclarationList RBRACE
+	: RecordHeader StructBody
 	{
-		current_context = *context.CurrentDeclContext;
-		$$ = new StructSpecifier(current_context,*$2,$4);
+		//current_context = *context.CurrentDeclContext;
+		$$ = $1;
+		auto specifier = dynamic_cast<StructSpecifier*>($$);
+		specifier->SetBody($2);
+		specifier->Decl()->AddBody($2);
 	}
-	| RecordKeyword LBRACE FieldDeclarationList RBRACE
+	| RecordHeader
 	{
-		$$ = new StructSpecifier(current_context,$3);
+		$$ = $1;
 	}
-	| RecordKeyword Identifier
+	| RecordKeyword StructBody
 	{
-		$$ = new StructSpecifier(current_context,*$2);
+		auto specifier = new StructSpecifier($2);
+		auto decl = new StructDeclaration();
+		current_context->AddDeclaration(decl);
+		specifier -> SetDecl(decl);
+	}
+	;
+
+RecordHeader
+	: RecordKeyword Identifier
+	{
+		auto specifier = new StructSpecifier($2);
+		$$ = specifier;
+
+		auto decl = current_context->LocalLookup($2);
+		if (!decl)
+		{
+			decl = new StructDeclaration($2);
+			current_context->AddDeclaration(decl);
+		} else {
+			auto struct_decl = dynamic_cast<StructDeclaration*>(decl);
+			if (!struct_decl)
+			{
+				error(@2,"redefination of symbol ""%s"".");
+				//Recover : replace the defination with latest one.
+				decl = new StructDeclaration($2);
+				current_context->AddDeclaration(decl);
+			} else {
+				struct_decl->AddNode(specifier);
+			}
+		}
+		specifier->SetDecl(decl);
+	}
+	;
+
+StructBody
+	: "{" FieldDeclarationList "}"
+	{
+		$$ = new StructBody($2);
+		CurrentDeclContext = CurrentDeclContext->pop();
 	}
 	;
 
@@ -582,23 +629,23 @@ RecordKeyword
 EnumSpecifier
 	: ENUM Identifier LBRACE EnumeratorList RBRACE
 	{
-		$$ = context.TypeContext->NewEnumType(*$2,$4);
+		$$ = new EnumSpecifier($2,$4);
 	}
 	| ENUM Identifier LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = context.TypeContext->NewEnumType(*$2,$4);
+		$$ = new EnumSpecifier($2,$4);
 	}
 	| ENUM LBRACE EnumeratorList RBRACE
 	{
-		$$ = context.TypeContext->NewEnumType($3);
+		$$ = new EnumSpecifier($3);
 	}
 	| ENUM LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = context.TypeContext->NewEnumType($3);
+		$$ = new EnumSpecifier($3);
 	}
 	| ENUM Identifier
 	{
-		$$ = context.TypeContext->NewEnumType(*$2);
+		$$ = new EnumSpecifier($2);
 	}
 	;
 
@@ -629,10 +676,10 @@ Enumerator
 	;
 
 FieldDeclarationList
-	: FieldDeclaration
+	: %empty
 	{
-		$$ = new std::list<Declaration*>();
-		$$->push_back($1);
+		$$ = new std::list<FieldDeclStmt*>();
+		CurrentDeclContext = CurrentDeclContext->push(new StructBody());
 	}
 	| FieldDeclarationList FieldDeclaration
 	{
@@ -644,11 +691,15 @@ FieldDeclarationList
 FieldDeclaration
 	: QualifiedTypeSpecifier FieldDeclaratorList SEMICOLON
 	{
+		auto compound_decl = new FieldDeclStmt($1,$2);
+		compound_decl -> SetLocation(@$);
 		for (auto declarator : $2)
 		{
-			Declaration* decl = new FieldDeclaration($1,$2);
-			current_context.add(decl);
-		}		
+			auto decl = new FieldDeclaration($1,$2);
+			decl -> SetNode(compound_decl);
+			CurrentDeclContext.AddDeclaration(decl);
+			// Handel redefination
+		}
 	}
 	;
 
@@ -726,12 +777,12 @@ PosfixExpr
 	}
 	| PosfixExpr ADDADD
 	{
-		$$ = new UnaryExpr(OP_SUFIX_SELF_PLUS,$2);
+		$$ = new PosfixExpr(OP_POSFIX_ADDADD,$1);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr SUBSUB
 	{
-		$$ = new UnaryExpr(OP_SUFIX_SELF_SUB,$2);
+		$$ = new PosfixExpr(OP_POSFIX_SUBSUB,$1);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr LBRACKET Expr RBRACKET
@@ -751,12 +802,12 @@ PosfixExpr
 	}
 	| PosfixExpr DOT Identifier
 	{
-		$$ = new DirectMemberExpr($1,$3);
+		$$ = new MemberExpr($1,$3,OP_DOT);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr ARROW Identifier
 	{
-		$$ = new IndirectMemberExpr($1,$3);
+		$$ = new MemberExpr($1,$3,OP_ARROW);
 		$$->SetLocation(@$);
 	}
 	;
@@ -768,17 +819,17 @@ UnaryExpr
 	}
 	| ADDADD UnaryExpr
 	{
-		$$ = new UnaryExpr($1,$2)
+		$$ = new UnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| SUBSUB UnaryExpr
 	{
-		$$ = new UnaryExpr($1,$2)
+		$$ = new UnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| UnaryOperator CastExpr
 	{
-		$$ = new UnaryExpr($1,$2)
+		$$ = new UnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| SIZEOF UnaryExpr
@@ -808,7 +859,7 @@ UnaryOperator
 	}
 	| SUB
 	{
-		$$ = $1;
+		$$ = OP_NEG;
 	}
 	| REVERSE
 	{
@@ -828,12 +879,12 @@ CastExpr
 	| CAST LSS TypeExpr GTR LPAREN Expr RPAREN
 	{
 		$$ = new ExplicitCastExpr($3,$6);
-		$$ = SetLocation(@$);
+		$$->SetLocation(@$);
 	}
 	| LPAREN TypeExpr RPAREN CastExpr
 	{
 		$$ = new ExplicitCastExpr($2,$4);
-		$$ = SetLocation(@$);
+		$$->SetLocation(@$);
 	}
 	;
 
@@ -985,33 +1036,33 @@ AssignExpr
 	{
 		//Unary op_enum here is because binary op_enum don't have L-value
 		$$ = new AssignExpr($1,$3);
-		$$ = SetLocation(@$);
+		$$ -> SetLocation(@$);
 	}
 	;
 
 AssignOperator
 	: ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| MUL_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| DIV_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| MOD_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| ADD_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| SUB_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| LSH_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| RSH_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| AND_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| XOR_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	| OR_ASSIGN
-	{ $$ = $1 }
+	{ $$ = $1; }
 	;
 
 Expr
@@ -1050,6 +1101,11 @@ TypeExpr
 	: QualifiedTypeSpecifier AbstractDeclarator
 	{
 		$$ = new TypeExpr($1,$2);
+		$$->SetLocation(@$);
+	}
+	| QualifiedTypeSpecifier
+	{
+		$$ = new TypeExpr($1,nullptr);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1127,35 +1183,63 @@ ExprStmt
 DeclStmt
 	: ObjectDeclaration SEMICOLON
 	{
-		$$ = new DeclStmt($1);
+		$$ = $1;
 		$$->SetLocation(@$);
 	}
 	| TypeDefination SEMICOLON
 	{
-		$$ = new DeclStmt($1);
+		$$ = $1;
 		$$->SetLocation(@$);
 	}
 	;
 
 IterationStmt
-	: FOR LPAREN Stmt ExprStmt Expr RPAREN Stmt
+	: FOR "(" Stmt ExprStmt Expr ")" Stmt
 	{
-		$$ = new ForStmt($3,$4,$5,$7);
+		Stmt* post_action = new ExprStmt($5);
+		ExprStmt* expr_stmt = dynamic_cast<ExprStmt*>($4);
+		Expr* condition;
+		if (expr_stmt != nullptr)
+		{
+			condition = expr_stmt->Expression();
+
+			// delete this expr-stmt since we are only interested in the expr it self
+			expr_stmt->SetExpression(nullptr);
+			delete expr_stmt;
+		} else // it's a null-statement
+		{
+			condition = nullptr;
+		}
+
+		$$ = new ForStmt($3,condition,post_action,$7);
 		$$->SetLocation(@$);
 	}
-	| FOR LPAREN Stmt ExprStmt RPAREN Stmt
+	| FOR "(" Stmt ExprStmt ")" Stmt
 	{
-		$$ = new ForStmt($3,$4,nullptr,$6);
+		ExprStmt* expr_stmt = dynamic_cast<ExprStmt*>($4);
+		Expr* condition;
+		if (expr_stmt != nullptr)
+		{
+			condition = expr_stmt->Expression();
+
+			// delete this expr-stmt since we are only interested in the expr it self
+			expr_stmt->SetExpression(nullptr);
+			delete expr_stmt;
+		} else // it's a null-statement
+		{
+			condition = nullptr;
+		}
+		$$ = new ForStmt($3,condition,nullptr,$6);
 		$$->SetLocation(@$);
 	}
-	| WHILE LPAREN Expr RPAREN Stmt
+	| WHILE "(" Expr ")" Stmt
 	{
 		$$ = new WhileStmt($3,$5);
 		$$->SetLocation(@$);
 	}
-	| DO Stmt WHILE LPAREN Expr RPAREN SEMICOLON
+	| DO Stmt WHILE "(" Expr ")" ";"
 	{
-		$$ = new DoWhileStmt($5,$2);
+		$$ = new DoWhileStmt($2,$5);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1163,19 +1247,20 @@ IterationStmt
 SelectionStmt
 	: IF LPAREN Expr RPAREN Stmt %prec NOELSE
 	{
-		$$ = new IfStmt($3,%5);
+		$$ = new IfStmt($3,$5);
 		$$->SetLocation(@$);
 	}
 	| IF LPAREN Expr RPAREN Stmt ELSE Stmt
 	{
-		$$ = new IfStmt($3,%5,$7);
+		$$ = new IfStmt($3,$5,$7);
 		$$->SetLocation(@$);
 	}
 	| SWITCH LPAREN Expr RPAREN Stmt
 	{
-		$$ = new SwitchStmt($3);
-		$$->SetLocation(@$);
-		diag_context->NewDiagMsg(@$,UnsupportedFeature,"'switch statement'");
+		//$$ = new SwitchStmt($3);
+		//$$->SetLocation(@$);
+		$$ = new NullStmt();
+		//diag_context->NewDiagMsg(@$,UnsupportedFeature,"'switch statement'");
 	}
 	;
 
@@ -1205,12 +1290,12 @@ JumpStmt
 Label
 	: CASE Expr COLON
 	{
-		$$ = new CaseLabel($2);
+		$$ = new NullStmt();
 		$$->SetLocation(@$);
 	}
 	| DEFAULT COLON
 	{
-		$$ = new DefaultLabel();
+		$$ = new NullStmt();
 		$$->SetLocation(@$);
 	}
 	;
@@ -1225,8 +1310,9 @@ void C1::BisonParser::error(const C1::BisonParser::location_type &loc, const std
 // Now that we have the Parser declared, we can declare the Scanner and implement
 // the yylex function
 #include "cscanner.h"
-static int yylex(C1::BisonParser::semantic_type * yylval,C1::BisonParser::location_type * yylloc,C1::AST::ASTContext& context, C1::FlexScanner &scanner);
-	return scanner.yylex(yylval,yylloc);
+inline C1::BisonParser::symbol_type yylex(C1::AST::ASTContext&, C1::FlexScanner &scanner)
+{
+	return scanner.NextToken();
 }
 
 /*

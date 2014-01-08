@@ -83,28 +83,30 @@
     <ClCompile Include="ast.cpp" />
     <ClCompile Include="src\c1.lex.cpp" />
     <ClCompile Include="src\c1.tab.cpp" />
+    <ClCompile Include="src\decl_context.cpp" />
     <ClCompile Include="src\driver.cpp" />
     <ClCompile Include="src\error.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ast.h" />
     <ClInclude Include="include\ast_context.h" />
-    <ClInclude Include="include\c1.tab.hpp" />
     <ClInclude Include="include\cparser.h" />
     <ClInclude Include="include\cscanner.h" />
     <ClInclude Include="include\declaration.h" />
     <ClInclude Include="include\decl_context.h" />
     <ClInclude Include="include\driver.h" />
-    <ClInclude Include="include\location.hh" />
     <ClInclude Include="include\operators.h" />
     <ClInclude Include="include\pcode.h" />
     <ClInclude Include="include\errcfg.h" />
     <ClInclude Include="include\error.h" />
     <ClInclude Include="include\opcfg.h" />
     <ClInclude Include="include\pcodegen.h" />
-    <ClInclude Include="include\position.hh" />
-    <ClInclude Include="include\stack.hh" />
     <ClInclude Include="include\type.h" />
+    <ClInclude Include="include\type_qualifiers.h" />
+    <ClInclude Include="src\c1.tab.hpp" />
+    <ClInclude Include="src\location.hh" />
+    <ClInclude Include="src\position.hh" />
+    <ClInclude Include="src\stack.hh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

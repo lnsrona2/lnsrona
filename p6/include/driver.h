@@ -1,6 +1,19 @@
 #pragma once
+#include <iostream>
+#include "ast.h"
+#include "cparser.h"
 
-class ConsoleDriver
+namespace C1
 {
+	class ConsoleDriver
+	{
+		ConsoleDriver(std::istream& input, std::ostream&)
+		: parser(input,"lalala.c")
+		{
 
-};
+		}
+
+	protected:
+		Parser parser;
+	};
+}
