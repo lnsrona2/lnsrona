@@ -35,11 +35,11 @@ namespace C1
 			typedef std::list<Declaration*>::reverse_iterator reverse_iterator;
 			typedef std::list<Declaration*>::const_reverse_iterator const_reverse_iterator;
 
-			const DeclContext& parent() const
+			const DeclContext* parent() const
 			{
 				return m_ParentContext;
 			}
-			DeclContext& parent()
+			DeclContext* parent()
 			{
 				return m_ParentContext;
 			}
@@ -61,8 +61,8 @@ namespace C1
 			{return lookup(name);}
 
 			// List interfaces
-			InsertionResult push_back(NamedDeclaration* declaration, NameCollisonPolicy = NonRedefinfinable);
-			InsertionResult push_back(Declaration* declaration);
+			InsertionResult add(NamedDeclaration* declaration, NameCollisonPolicy = NonRedefinfinable);
+			InsertionResult add(Declaration* declaration);
 			//void push_front(Declaration* declaration);
 			//void remove(Declaration* declaration);
 
@@ -80,11 +80,20 @@ namespace C1
 			//reverse_iterator rbegin() { return m_ListView.rbegin(); }
 			//reverse_iterator rend() { return m_ListView.rend(); }
 
+		protected:
+			DeclContext()
+				: m_ParentContext(nullptr), m_pTableView(nullptr)
+			{}
+
+			DeclContext(DeclContext* pParentContext)
+				: m_ParentContext(pParentContext), m_pTableView(nullptr)
+			{}
+
 		private:
 			static const size_t IndexizeThreshold = 10;
 			void Indexize();
 
-			DeclContext& m_ParentContext;
+			DeclContext* m_ParentContext;
 			// The basic view
 			std::list<Declaration*> m_ListView;
 			std::unique_ptr<std::multimap<std::string, NamedDeclaration*>> m_pTableView;

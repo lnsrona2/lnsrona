@@ -1,5 +1,8 @@
 #pragma once
 
+#include "c1.tab.hpp"
+#include "ast_context.h"
+
 // Only include FlexLexer.h if it hasn't been already included
 #if ! defined(yyFlexLexerOnce)
 #include <FlexLexer.h>
@@ -12,8 +15,6 @@
 //	yylloc.first_column = yycolumn; yylloc.last_column = yycolumn + yyleng - 1; \
 //	yycolumn += yyleng;
 // Include Bison for types / tokens
-#include "c1.tab.hpp"
-#include "ast_context.h"
 
 
 namespace C1 {

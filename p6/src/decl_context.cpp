@@ -3,7 +3,7 @@
 #include <algorithm>
 using namespace C1::AST;
 
-DeclContext::InsertionResult DeclContext::push_back(Declaration* declaration)
+DeclContext::InsertionResult DeclContext::add(Declaration* declaration)
 {
 	if (!m_pTableView && m_ListView.size() >= IndexizeThreshold)
 		Indexize();
@@ -14,9 +14,10 @@ DeclContext::InsertionResult DeclContext::push_back(Declaration* declaration)
 		auto pNameDecl = dynamic_cast<NamedDeclaration*>(declaration);
 		m_pTableView->insert(std::make_pair(pNameDecl->Name(), pNameDecl));
 	}
+	return Success;
 }
 
-DeclContext::InsertionResult DeclContext::push_back(NamedDeclaration* declaration, NameCollisonPolicy name_policy)
+DeclContext::InsertionResult DeclContext::add(NamedDeclaration* declaration, NameCollisonPolicy name_policy)
 {
 	if (!m_pTableView && m_ListView.size() >= IndexizeThreshold)
 		Indexize();
@@ -81,7 +82,7 @@ const Declaration* DeclContext::lookup(const std::string &name) const
 		if (pDecl)
 			return pDecl;
 		else
-			pContext = &pContext->parent();
+			pContext = pContext->parent();
 	}
 	return nullptr;
 }

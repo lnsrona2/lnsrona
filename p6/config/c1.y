@@ -155,14 +155,16 @@
 %type <AST::Expr*> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
 %type <AST::Initializer*> Initializer
 
-%type <AST::TypeSpecifier*> TypeSpecifier RecordSpecifier EnumSpecifier
+%type <AST::TypeSpecifier*> TypeSpecifier EnumSpecifier
 %type <AST::QualifiedTypeSpecifier*> QualifiedTypeSpecifier
 %type <AST::TypeExpr*> TypeExpr
 %type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
 
-%type <AST::Node*> TranslationUnit FunctionDefination ExtendDeclaration
-%type <AST::FunctionHeader*> FunctionHeader
-%type <AST::StructBody*> StructBody;
+%type <AST::TranslationUnit*> TranslationUnit 
+%type <AST::Node*> ExtendDeclaration
+%type <AST::FunctionDeclaration*> FunctionHeader FunctionDefination
+%type <AST::StructDeclaration *> RecordHeader RecordSpecifier
+%type <AST::StructBody*> StructBody FieldDeclarationList
 %type <AST::VarDeclStmt*> ObjectDeclaration
 %type <AST::TypedefStmt*> TypeDefination
 %type <AST::ParameterDeclaration*> ParameterDeclaration
@@ -177,8 +179,7 @@
 %type <std::list<AST::Initializer*>*> InitializerList 
 %type <std::list<AST::Declarator*>*> DeclaratorList InitDeclaratorList FieldDeclaratorList
 %type <std::list<AST::Enumerator*>*> EnumeratorList
-%type <std::list<AST::ParameterDeclaration*>*> ParameterList
-%type <std::list<AST::FieldDeclStmt*>*> FieldDeclarationList
+%type <AST::ParameterList*> ParameterList
 %type <std::list<AST::Stmt*>*> StmtList
 %type <std::list<AST::Expr*>*> ArgumentList
 
@@ -190,13 +191,11 @@ TranslationUnit
 	: TranslationUnit ExtendDeclaration
 	{
 		$$ = $1;
-		//$$->AddDeclaration($2);
+		$$ -> Children().push_back($1);
 	}
-	| ExtendDeclaration
+	| %empty
 	{
 		$$ = context.CurrentTranslationUnit;
-		//$$ = new TranslationUnit;
-		//$$->AddDeclaration($1);
 	}
 	;
 
@@ -214,40 +213,60 @@ ExtendDeclaration
 FunctionDefination
 	: FunctionHeader CompoundStmt
 	{
-		$$ = new FunctionDefination($1,$2);
+		$$ = $1;
+		$$->SetDefinition($2);
+		$$->SetLocation(@$);
 	}
 	;
 
 FunctionHeader
 	: StorageClassSpecifier QualifiedTypeSpecifier Declarator
 	{
-		if (!isa<FunctionalDeclarator*>($3))
+		auto declarator = $3;
+		if (dynamic_cast<FunctionalDeclarator*>(declarator) == nullptr)
 		{
 			error(@3,"Expect a function declaration here.");
+			// WTF, what should we do to recover here?!
+			// let's wrap the declarator to declarator() and process.
+			declarator = new FunctionalDeclarator(declarator,nullptr);
 		}
-		$$ = new FunctionHeader($1,$2,$3);
-		// We do this here because we FunctionHeader : ValueDeclaration
-		context.CurrentDeclContext->AddDeclaration($$);
+		auto func = new FunctionDeclaration($1,$2,declarator);
+		context.current_context()->add(func);
+		$$ = func;
+		$$->SetLocation(@$);
+
 	}
 	;
 
 ObjectDeclaration
 	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList
 	{
-		$$ = new VarDeclStmt($1,$2,$3);
-		/*for (auto declarator : *$3)
+		auto compound_decl = new VarDeclStmt($1,$2,$3);
+		$$ = compound_decl;
+		$$ -> SetLocation(@$);
+		for (auto declarator : *$3)
 		{
-			Declaration* decl;
-			if (isa<FunctionalDeclarator*>(declarator))
+			ValueDeclaration* decl;
+			if (dynamic_cast<FunctionalDeclarator*>(declarator) != nullptr)
 			{
-				decl = new FunctionDeclaration($1,*$2,declarator);
-			}
-			else
+				if (context.current_context() != context.CurrentTranslationUnit)
+				error(@$,"warnning : declare/define a function inside function is not allow.");
+				// Recovery : assume the function is in global scope
+				decl = new FunctionDeclaration($1,$2,declarator);
+				decl -> SetSourceNode(compound_decl);
+			context.CurrentTranslationUnit->add(decl);
+			} else if (dynamic_cast<IdentifierDeclarator*>(declarator) != nullptr && dynamic_cast<FunctionType*>($2->RepresentType().get()) != nullptr)
 			{
-				decl = new VariableDeclaration($1,*$2,declarator);
+				error(@$,"warnning : WTF! declaring a function type object is not allow.");
+			} else
+			{
+				decl = new VariableDeclaration($1,$2->RepresentType(),declarator);
+				decl -> SetSourceNode(compound_decl);
+				context.current_context()->add(decl);
 			}
-			context.CurrentDeclContext->AddDeclaration(decl);
-		}*/
+			// add the sub-declaration into the easy access list.
+			compound_decl -> Declarations().push_back(decl);
+		}
 	}
 	;
 
@@ -255,11 +274,13 @@ TypeDefination
 	: TYPEDEF QualifiedTypeSpecifier DeclaratorList
 	{
 		$$ = new TypedefStmt($2,$3);
-		/*for (auto declarator : *$3)
+		for (auto declarator : *$3)
 		{
-			auto decl = new TypedefDeclaration(*$2,declarator);
-			context.CurrentDeclContext->AddDeclaration(decl);
-		}*/
+			auto decl = new TypedefDeclaration($2->RepresentType(),declarator);
+			decl -> SetSourceNode($$);
+			context.current_context()->add(decl);
+			$$ -> Declarations().push_back(decl);
+		}
 	}
 	;
 
@@ -316,7 +337,9 @@ DirectDeclarator
 	}
 	| DirectDeclarator LPAREN RPAREN
 	{
-		$$ = new FunctionalDeclarator($1,nullptr);
+		// Build an empty parameter list
+		auto param_list = new ParameterList();
+		$$ = new FunctionalDeclarator($1,param_list);
 		$$->SetLocation(@$);
 	}
 	;
@@ -350,6 +373,7 @@ Initializer
 	: ConstantExpr
 	{
 		$$ = new Initializer($1);
+		$$->SetLocation(@$);
 	}
 	| LBRACE InitializerList RBRACE
 	{
@@ -431,7 +455,9 @@ DirectAbstractDeclarator
 	}
 	| DirectAbstractDeclarator LPAREN RPAREN
 	{
-		$$ = new FunctionalDeclarator($1,nullptr);
+		// Build an empty parameter list
+		auto param_list = new ParameterList();
+		$$ = new FunctionalDeclarator($1,param_list);
 		$$->SetLocation(@$);
 	}
 	;
@@ -440,12 +466,12 @@ ParameterList
 	: ParameterList COMMA ParameterDeclaration
 	{
 		$$ = $1;
-		$$->push_back($3);
+		$$->add($3);
 	}
 	| ParameterDeclaration
 	{
-		$$ = new std::list<ParameterDeclaration*>();
-		$$->push_back($1);
+		$$ = new ParameterList();
+		$$->add($1);
 	}
 	;
 
@@ -518,7 +544,7 @@ TypeSpecifier
 	| TypeIdentifier
 	{
 		$$ = new TypedefNameSpecifier($1);
-		/*auto decl = dynamic_cast<TypeDeclaration*>(context.CurrentDeclContext->Lookup(*$1));
+		/*auto decl = dynamic_cast<TypeDeclaration*>(context.current_context()->Lookup(*$1));
 		assert(decl != nullptr);
 		$$ = decl->DeclType();*/
 	}
@@ -563,9 +589,8 @@ RecordSpecifier
 	{
 		//current_context = *context.CurrentDeclContext;
 		$$ = $1;
-		auto specifier = dynamic_cast<StructSpecifier*>($$);
-		specifier->SetBody($2);
-		specifier->Decl()->AddBody($2);
+		$$ -> SetLocation(@$);
+		dynamic_cast<StructDeclaration*>($$) -> SetDefinition($2);
 	}
 	| RecordHeader
 	{
@@ -573,20 +598,22 @@ RecordSpecifier
 	}
 	| RecordKeyword StructBody
 	{
-		auto specifier = new StructSpecifier($2);
-		auto decl = new StructDeclaration();
-		current_context->AddDeclaration(decl);
-		specifier -> SetDecl(decl);
+		auto decl = new StructDeclaration($2);
+		context.current_context()->add(decl);
+		$$ = decl;
+		$$ -> SetLocation(@$);
 	}
 	;
 
 RecordHeader
 	: RecordKeyword Identifier
 	{
-		auto specifier = new StructSpecifier($2);
-		$$ = specifier;
+		auto decl = new StructDeclaration($2);
+		context.current_context()->add(decl);
+		$$ = decl;
+		$$ -> SetLocation(@$);
 
-		auto decl = current_context->LocalLookup($2);
+		/*auto decl = current_context->LocalLookup($2);
 		if (!decl)
 		{
 			decl = new StructDeclaration($2);
@@ -603,15 +630,15 @@ RecordHeader
 				struct_decl->AddNode(specifier);
 			}
 		}
-		specifier->SetDecl(decl);
+		specifier->SetDecl(decl);*/
 	}
 	;
 
 StructBody
 	: "{" FieldDeclarationList "}"
 	{
-		$$ = new StructBody($2);
-		CurrentDeclContext = CurrentDeclContext->pop();
+		$$ = $2;
+		context.pop_context();
 	}
 	;
 
@@ -678,13 +705,13 @@ Enumerator
 FieldDeclarationList
 	: %empty
 	{
-		$$ = new std::list<FieldDeclStmt*>();
-		CurrentDeclContext = CurrentDeclContext->push(new StructBody());
+		$$ = new StructBody();
+		context.push_context($$);
 	}
 	| FieldDeclarationList FieldDeclaration
 	{
 		$$ = $1;
-		$$->push_back($2);
+		$$->Children().push_back($2);
 	}
 	;
 
@@ -693,11 +720,11 @@ FieldDeclaration
 	{
 		auto compound_decl = new FieldDeclStmt($1,$2);
 		compound_decl -> SetLocation(@$);
-		for (auto declarator : $2)
+		for (auto declarator : *$2)
 		{
-			auto decl = new FieldDeclaration($1,$2);
-			decl -> SetNode(compound_decl);
-			CurrentDeclContext.AddDeclaration(decl);
+			auto decl = new FieldDeclaration($1->RepresentType(),declarator);
+			decl -> SetSourceNode(compound_decl);
+			context.current_context()->add(decl);
 			// Handel redefination
 		}
 	}
@@ -760,7 +787,7 @@ PrimaryExpr
 	}
 	| Identifier
 	{
-		$$ = new DeclRefExpr($1);
+		$$ = new DeclRefExpr(context.current_context(),$1);
 		$$->SetLocation(@$);
 	}
 	| LPAREN Expr RPAREN

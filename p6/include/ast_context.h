@@ -2,6 +2,7 @@
 
 #include "decl_context.h"
 #include "type.h"
+#include <stack>
 
 namespace C1
 {
@@ -18,10 +19,6 @@ namespace C1
 		public:
 			// The current translation unit
 			TranslationUnit* CurrentTranslationUnit;
-			// Storage the current working scope , the coming declaration is stored in it
-			DeclContext*	CurrentDeclContext;
-			// The type context object for creating and retrieving predefined types
-			TypeContext*	TypeContext;
 			// The name of the current working source file
 			std::string		FileName;
 			// The input stream for source file
@@ -29,6 +26,35 @@ namespace C1
 			// Storage the qualified type for declarations.
 			QualType		CurrentQualifiedType;
 
+			// Storage the current working scope , the coming declaration is stored in it
+			//DeclContext*	CurrentDeclContext();
+
+			// The type context object for creating and retrieving predefined types
+			TypeContext*	TypeContext;
+
+			void push_context(DeclContext* decl_context)
+			{
+				m_DeclStack.push(decl_context);
+			}
+
+			DeclContext* pop_context()
+			{
+				auto decl_context = m_DeclStack.top();
+				m_DeclStack.pop();
+				return decl_context;
+			}
+
+			DeclContext* current_context()
+			{
+				return m_DeclStack.top();
+			}
+
+			const DeclContext* current_context() const
+			{
+				return m_DeclStack.top();
+			}
+		protected:
+			std::stack<DeclContext*>	m_DeclStack;
 		};
 	}
 

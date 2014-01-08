@@ -125,9 +125,9 @@ typedef C1::BisonParser::token token;
 				}
 {ident}	 		{ 
 					std::string val(yytext);
-					auto decl = pContext->CurrentDeclContext->Lookup(val);
+					auto decl = pContext->current_context()->lookup(val);
 					if (decl){
-						if (isa<TypeDeclaration*>(decl))
+						if (dynamic_cast<const TypeDeclaration*>(decl)!=nullptr)
 							return token::TypeIdentifier;
 						else
 							return token::ObjectIdentifier;

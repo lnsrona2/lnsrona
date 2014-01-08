@@ -24,13 +24,12 @@ namespace C1
 		class Enumerator;
 		class QualifiedTypeSpecifier;
 
-		template <typename TargetType, typename SourceType>
-		bool isa(typename SourceType* var)
-		{
-			//static_assert(std::is_pointer<TargetType>::value);
-			TargetType ptr = dynamic_cast<TargetType>(var);
-			return ptr != nullptr;
-		};
+		//template <typename TargetType, typename SourceType>
+		//bool isa(typename SourceType* var)
+		//{
+		//	TargetType ptr = dynamic_cast<TargetType>(var);
+		//	return ptr != nullptr;
+		//};
 
 		class TranslationUnit;
 		// Storage nesseary "global" context value for building AST
@@ -57,7 +56,9 @@ namespace C1
 			const Node* PrevNode() const;
 
 			std::string ToString() const/* = 0*/;
-			virtual void Dump(std::ostream& ostr);
+
+			virtual void Dump(std::ostream& ostr) = 0;
+			virtual void Generate(CodeGenerator& generator);
 
 			virtual ~Node() = 0;
 		private:
@@ -72,12 +73,21 @@ namespace C1
 			std::string &Content();
 		};
 
-		class TranslationUnit : public Node , public DeclContext
+		// Represent the node which containts a collection of child but not some specifid number of children
+		class ScopeNode : public Node
+		{
+		public:
+			std::list<Node*>& Children() { return m_Chilren; }
+			const std::list<Node*>& Children() const { return m_Chilren; }
+
+		protected:
+			std::list<Node*> m_Chilren;
+		};
+
+		class TranslationUnit : public ScopeNode, public DeclContext
 		{
 		public:
 			const std::string& Name() const;
-			std::list<Declaration*>& Declarations();
-			const std::list<Declaration*>& Declarations() const;
 			~TranslationUnit();
 		};
 
@@ -127,7 +137,7 @@ namespace C1
 		class DeclRefExpr : public Expr
 		{
 		public:
-			DeclRefExpr(const std::string &name);
+			DeclRefExpr(DeclContext* lookup_context,const std::string &name);
 			const Declaration* Declaration() const;
 		};
 
@@ -397,8 +407,9 @@ namespace C1
 		class TypeSpecifier : public Node
 		{
 		public:
-			Type* DeclType();
-			const Type* DeclType() const;
+			Type* RepresentType();
+			const Type* RepresentType() const;
+			void SetRepresentType(Type* type);
 		};
 
 		class PrimaryTypeSpecifier : public TypeSpecifier
@@ -408,24 +419,37 @@ namespace C1
 			std::string ToString() const;
 		};
 
-		class StructSpecifier : public TypeSpecifier
+		class StructBody : public ScopeNode, public DeclContext
 		{
 		public:
-			StructSpecifier(const std::string& name, StructBody* defination);
-			StructSpecifier(const std::string& name);
-			StructSpecifier(StructBody* defination);
-			bool HasName() const;
-			bool HasDefination() const;
+			StructBody();
+		};
+
+		// represent a struct specifier
+		// anything like "strcut foo" or "struct foo {..}" or "struct {...}"
+		class StructDeclaration : public TypeSpecifier, public TypeDeclaration, public Redeclarable<StructDeclaration>
+		{
+		public:
+			StructDeclaration(const std::string& name, StructBody* definition);
+			StructDeclaration(const std::string& name);
+			StructDeclaration(StructBody* definition);
+			StructDeclaration()
+			{
+				SetKind(DECL_STRUCT);
+			}
+
 			const std::string & Name() const;
-			StructBody* Defination() const;
+			StructBody* Definition();
+			void SetDefinition(StructBody*);
+			StructBody* LatestDefinition();
 		};
 
 
 		class EnumSpecifier : public TypeSpecifier
 		{
 		public:
-			EnumSpecifier(const std::string& name, std::list<Enumerator*>* defination);
-			EnumSpecifier(std::list<Enumerator*>* defination);
+			EnumSpecifier(const std::string& name, std::list<Enumerator*>* definition);
+			EnumSpecifier(std::list<Enumerator*>* definition);
 			EnumSpecifier(const std::string& name);
 		};
 
@@ -441,15 +465,17 @@ namespace C1
 			QualifiedTypeSpecifier(int, TypeSpecifier*);
 			int Qualifiers() const;
 			TypeSpecifier* TypeSpecifier() const;
-			QualType DeclQualType() const;
+			QualType RepresentType() const;
 		};
 
 		template <typename T>
 		class CompoundDeclaration
 		{
-			const TypeSpecifier* DeclTypeSpecifier() const;
+		public:
+			const QualifiedTypeSpecifier* DeclQualifiedTypeSpecifier() const;
 			const std::list<Declarator*>& DeclaratorList() const;
-			const std::list<T*> Declarations() const;
+			const std::list<T*>& Declarations() const;
+			std::list<T*>& Declarations();
 		};
 
 		class VarDeclStmt : public DeclStmt, public CompoundDeclaration<ValueDeclaration>
@@ -471,41 +497,46 @@ namespace C1
 			FieldDeclStmt(QualifiedTypeSpecifier*, std::list<Declarator*>*);
 		};
 
+		// A simple declaration container for parameters
+		class ParameterList : public Node, public DeclContext
+		{
+		public:
+			ParameterList()
+			{}
+		};
+
 		class FunctionDeclaration : public Node, public ValueDeclaration, public Redeclarable<FunctionDeclaration>
 		{
 		public:
-			FunctionDeclaration(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier *qualified_type_specifier, Declarator* declarator);
+			FunctionDeclaration(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier *qualified_type_specifier, Declarator* declarator)
+				: m_storage_specifier(scs), m_type_specifier(qualified_type_specifier), m_declarator(declarator)
+			{
 
-			StorageClassSpecifierEnum StorageClassSpecifier() const { return m_storage_specifier; }
-			const TypeSpecifier* DeclTypeSpecifier() const { return m_type_specifier.get(); }
+			}
+
+			const QualifiedTypeSpecifier* DeclTypeSpecifier() const { return m_type_specifier.get(); }
 			Declarator* GetDeclarator() const { return m_declarator.get(); }
 
-			Stmt* Defination()  { return m_defination.get(); }
-			void SetDefination(Stmt* def) { m_defination.reset(def); }
-			Stmt* LatestDefination()
+			Stmt* Definition()  { return m_definition.get(); }
+			void SetDefinition(Stmt* def) { m_definition.reset(def); }
+			Stmt* LatestDefinition()
 			{
 				auto func = this;
-				while (!func->Defination())
+				while (!func->Definition())
 				{
 					func = func->prev();
 				}
-				return func->Defination();
+				return func->Definition();
 			}
 
 			ParameterList& ParameterList();
 			QualType& ReturnType();
 		protected:
 			//Literal entities
-			StorageClassSpecifierEnum		m_storage_specifier;
-			std::unique_ptr<TypeSpecifier>	m_type_specifier;
-			std::unique_ptr<Declarator>		m_declarator;
-			std::unique_ptr<Stmt>			m_defination;
-		};
-
-		// A simple declaration container for parameters
-		class ParameterList : public Node, public DeclContext
-		{
-			ParameterList();
+			StorageClassSpecifierEnum				m_storage_specifier;
+			std::unique_ptr<QualifiedTypeSpecifier>	m_type_specifier;
+			std::unique_ptr<Declarator>				m_declarator;
+			std::unique_ptr<Stmt>					m_definition;
 		};
 
 		// Represent an Parameter Declaration
@@ -517,12 +548,6 @@ namespace C1
 			ParameterDeclaration(QualifiedTypeSpecifier*, Declarator*);
 			QualifiedTypeSpecifier* QualifiedTypeSpecifier();
 			Declarator*	Declarator();
-		};
-
-		class StructBody : public Node, public DeclContext
-		{
-		public:
-			StructBody(std::list<FieldDeclStmt*>*);
 		};
 
 		class Declarator : public Node
@@ -578,9 +603,9 @@ namespace C1
 		class FunctionalDeclarator : public Declarator
 		{
 		public:
-			FunctionalDeclarator(Declarator* base, std::list<ParameterDeclaration*>* param_list);
+			FunctionalDeclarator(Declarator* base, ParameterList* param_list);
 			const Declarator* Base() const;
-			const std::list<ParameterDeclaration*>& ParameterList() const;
+			const ParameterList& ParameterList() const;
 		};
 
 		class FieldDeclarator : public Declarator

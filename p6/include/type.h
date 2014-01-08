@@ -12,8 +12,8 @@ namespace C1
 	namespace AST
 	{
 		class DeclContext;
-		class RecordDeclaration;
-		class StructBody;
+		//class RecordDeclaration;
+		//class StructBody;
 		class Declaration;
 		class Declarator;
 
@@ -21,10 +21,40 @@ namespace C1
 		class Type
 		{
 		public:
+			// register all the sub classes here
+			enum TypeKindEnum
+			{
+				Unknown,
+				Basic,
+				Void,
+				Boolean,
+				Character,
+				Integer,
+				Float,
+				String,
+				Pointer,
+				Array,
+				Function,
+				Struct,
+				Union,
+				Enum,
+				Typedef,
+			};
 			virtual std::string ToString() const;
 			virtual size_t Size() const;
 			virtual size_t Alignment() const;
 			virtual ~Type();
+
+		protected:
+			Type(TypeKindEnum kind)
+				: m_Kind(kind)
+			{}
+
+			Type()
+				: m_Kind(Unknown)
+			{}
+
+			TypeKindEnum m_Kind;
 		};
 
 		bool type_match(const Type &lhs, const Type &rhs);
@@ -125,21 +155,23 @@ namespace C1
 		class PointerType : public Type
 		{
 		public:
+			static const TypeKindEnum class_kind = Pointer;
 			PointerType(QualType base)
-				: m_base(base)
+				: Type(class_kind), m_base(base)
 			{
 			}
 			const QualType Base() const;
 		private:
 			QualType m_base;
 		};
+
 		class ArrayType : public Type
 		{
 		public:
+			static const TypeKindEnum class_kind = Array;
 			ArrayType(QualType base, size_t size)
-				: m_base(base), m_size(size)
-			{
-			}
+				: Type(class_kind), m_base(base), m_size(size)
+			{}
 			const QualType Base() const;
 			int Length() const;
 		private:
@@ -149,31 +181,126 @@ namespace C1
 
 		class RecordType : public Type
 		{
-			StructBody* Defination();
+		public:
+			static const TypeKindEnum class_kind = Unknown;
+			RecordType(TypeKindEnum kind, const std::string &name, DeclContext* define = nullptr)
+				: Type(kind), m_Name(name), m_Members(define)
+			{}
+			const std::string& Name() const { return m_Name; }
+			bool IsCompleted() const { return m_Members != nullptr; }
+
+			// We don't discard all the member's name detail here becaus we need them
+			DeclContext* Members() { return m_Members; }
+			const DeclContext* Members() const { return m_Members; }
+
+			void SetDefinition(DeclContext* define) { m_Members = define; }
+
+		protected:
+			std::string m_Name;
+			DeclContext* m_Members;
 		};
 
 		class StructType : public RecordType
 		{
+		public:
+			static const TypeKindEnum class_kind = Struct;
+			StructType(const std::string &name = "%anonymous", DeclContext* define = nullptr)
+				: RecordType(Struct,name,define)
+			{}
+		};
+
+		class FunctionType : public Type
+		{
+		public:
+			static const TypeKindEnum class_kind = Function;
+			FunctionType(QualType return_type, const std::list<QualType>& parameters)
+				: Type(class_kind), m_ReturnType(return_type), m_Parameters(parameters)
+			{}
+			FunctionType(QualType return_type, std::list<QualType>&& parameters)
+				: Type(class_kind), m_ReturnType(return_type), m_Parameters(std::move(parameters))
+			{}
+			QualType ReturnType();
+			const QualType ReturnType() const;
+			// Since it's an type, we discard all the parameter's name
+			std::list<QualType>& Parameters();
+			const std::list<QualType>& Parameters() const;
+		private:
+			QualType m_ReturnType;
+			std::list<QualType> m_Parameters;
 		};
 
 		class EnumType : public RecordType
 		{
+			static const TypeKindEnum class_kind = Enum;
 
 		};
 
 		class UnionType : public RecordType
 		{
+			static const TypeKindEnum class_kind = Union;
 		};
+
 		class BasicType : public Type
-		{};
+		{
+		public:
+			static const TypeKindEnum class_kind = Basic;
+			typedef Type::TypeKindEnum TypeKindEnum;
+
+			size_t Size() const {
+				return m_Size;
+			}
+
+			size_t Alignment() const {
+				return m_Alignment;
+			}
+		protected:
+			BasicType(TypeKindEnum kind, size_t size, size_t alignment)
+				: Type(kind), m_Size(size), m_Alignment(alignment)
+			{}
+			BasicType(TypeKindEnum kind, size_t size)
+				: Type(kind), m_Size(size), m_Alignment(0)
+			{}
+
+			size_t m_Size;
+			size_t m_Alignment;
+		};
 		class VoidType : public BasicType
-		{};
+		{
+		public:
+			static const TypeKindEnum class_kind = Void;
+			VoidType()
+				: BasicType(Void,0,0)
+			{}
+		};
 		class BooleanType : public BasicType
-		{};
+		{
+		public:
+			static const TypeKindEnum class_kind = Integer;
+			BooleanType()
+				: BasicType(Boolean, 0, 0)
+			{}
+		};
 		class IntegerType : public BasicType
-		{};
+		{
+			static const TypeKindEnum class_kind = Integer;
+			IntegerType()
+				: BasicType(Integer, 4,4)
+			{}
+		};
+		class CharacterType : public BasicType
+		{
+			static const TypeKindEnum class_kind = Character;
+			CharacterType()
+				: BasicType(Character, 1, 1)
+			{}
+		};
 		class FloatType : public BasicType
-		{};
+		{
+			static const TypeKindEnum class_kind = Float;
+			FloatType()
+			: BasicType(Float, 4, 4)
+			{}
+		};
 
 		class TypeContext
 		{
