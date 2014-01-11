@@ -13,9 +13,13 @@ namespace C1 {
 		{
 			ast_context.FileName = file_name;
 			ast_context.SourceFile = &input;
+			ast_context.type_context = new AST::TypeContext();
 		}
 
 		AST::TranslationUnit* parse() {
+			std::ofstream errs(ast_context.FileName + ".log");
+			parser.set_debug_level(1);
+			parser.set_debug_stream(errs);
 			parser.parse();
 			return ast_context.CurrentTranslationUnit;
 		}

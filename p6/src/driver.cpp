@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include <fstream>
 #include "driver.h"
 using namespace std;
@@ -15,5 +16,6 @@ int main(int argc, char *argv [])
 	//ConsoleDriver driver(&source, &cout);
 	C1::Parser parser(source, sourceFileName);
 	auto ast = parser.parse();
-	cout << ast->ToString();
+	ast->Dump(cout);
+	system("PAUSE");
 }

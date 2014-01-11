@@ -18,10 +18,14 @@
 	#include "type.h"
 	#include "declaration.h"
 	#include "ast.h"
+	//#define YYDEBUG 3
 	// Forward-declare the Scanner class; the Parser needs to be assigned a 
 	// Scanner, but the Scanner can't be declared without the Parser
 	namespace C1 {
 		class FlexScanner;
+		namespace AST {
+			typedef AST::Expr *ExprPtr;
+		}
 	}
 }
 
@@ -78,7 +82,7 @@
 	ENUM "enum"
 	;
 
-%token <AST::Expr*> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
+%token <AST::ExprPtr> INT_LITERAL FLOAT_LITERAL STRING_LITERAL
 %token <std::string> NewIdentifier ObjectIdentifier TypeIdentifier
 
 %token <OperatorsEnum>
@@ -154,11 +158,13 @@
 
 %type <AST::Expr*> Expr AssignExpr ConstantExpr ConditionalExpr ArithmeticExpr CastExpr BitwiseExpr UnaryExpr PosfixExpr PrimaryExpr RelationExpr EqualityExpr LogicAndExpr LogicOrExpr
 %type <AST::Initializer*> Initializer
+%type <AST::InitializerList*> InitializerList 
 
 %type <AST::TypeSpecifier*> TypeSpecifier EnumSpecifier
 %type <AST::QualifiedTypeSpecifier*> QualifiedTypeSpecifier
 %type <AST::TypeExpr*> TypeExpr
-%type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt CompoundStmt JumpStmt DeclStmt Label
+%type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt JumpStmt DeclStmt Label
+%type <AST::CompoundStmt*> StmtList CompoundStmt
 
 %type <AST::TranslationUnit*> TranslationUnit 
 %type <AST::Node*> ExtendDeclaration
@@ -173,29 +179,43 @@
 %type <AST::Declarator*> Declarator DirectDeclarator AbstractDeclarator DirectAbstractDeclarator InitDeclarator FieldDeclarator
 %type <AST::Enumerator*> Enumerator
 
+
 %type <std::string> Identifier 
 
 %type <std::list<int>*> DeclaratorPointer
-%type <std::list<AST::Initializer*>*> InitializerList 
 %type <std::list<AST::Declarator*>*> DeclaratorList InitDeclaratorList FieldDeclaratorList
 %type <std::list<AST::Enumerator*>*> EnumeratorList
 %type <AST::ParameterList*> ParameterList
-%type <std::list<AST::Stmt*>*> StmtList
 %type <std::list<AST::Expr*>*> ArgumentList
 
 %type <OperatorsEnum> UnaryOperator AssignOperator
 
+%initial-action
+{
+// Initialize the initial location.
+@$.begin.filename = @$.end.filename = &context.FileName;
+};
+
 %%
 %start TranslationUnit;
 TranslationUnit
-	: TranslationUnit ExtendDeclaration
+	: TranslationUnit END
 	{
 		$$ = $1;
-		$$ -> Children().push_back($1);
+		$$->SetLocation(@$);
+		return 0;
+	}
+	|
+	TranslationUnit ExtendDeclaration
+	{
+		$$ = $1;
+		$$ -> Children().push_back($2);
+		$$->SetLocation(@$);
 	}
 	| %empty
 	{
-		$$ = context.CurrentTranslationUnit;
+		$$ = context.CurrentTranslationUnit = new TranslationUnit(context.FileName);
+		context.push_context($$);
 	}
 	;
 
@@ -216,6 +236,7 @@ FunctionDefination
 		$$ = $1;
 		$$->SetDefinition($2);
 		$$->SetLocation(@$);
+		context.pop_context();
 	}
 	;
 
@@ -230,8 +251,10 @@ FunctionHeader
 			// let's wrap the declarator to declarator() and process.
 			declarator = new FunctionalDeclarator(declarator,nullptr);
 		}
-		auto func = new FunctionDeclaration($1,$2,declarator);
+		auto func = new FunctionDeclaration($1,$2,static_cast<FunctionalDeclarator*>(declarator));
 		context.current_context()->add(func);
+		// Add parameter list to the look up stack's top , which enabled the lookup of parameters
+		context.push_context(&func->Parameters());
 		$$ = func;
 		$$->SetLocation(@$);
 
@@ -241,10 +264,11 @@ FunctionHeader
 ObjectDeclaration
 	: StorageClassSpecifier QualifiedTypeSpecifier InitDeclaratorList
 	{
+		//$3 will be moved.
 		auto compound_decl = new VarDeclStmt($1,$2,$3);
 		$$ = compound_decl;
 		$$ -> SetLocation(@$);
-		for (auto declarator : *$3)
+		for (auto declarator : compound_decl->DeclaratorList())
 		{
 			ValueDeclaration* decl;
 			if (dynamic_cast<FunctionalDeclarator*>(declarator) != nullptr)
@@ -252,9 +276,11 @@ ObjectDeclaration
 				if (context.current_context() != context.CurrentTranslationUnit)
 				error(@$,"warnning : declare/define a function inside function is not allow.");
 				// Recovery : assume the function is in global scope
-				decl = new FunctionDeclaration($1,$2,declarator);
+				decl = new FunctionDeclaration($1,$2,dynamic_cast<FunctionalDeclarator*>(declarator));
 				decl -> SetSourceNode(compound_decl);
-			context.CurrentTranslationUnit->add(decl);
+				context.CurrentTranslationUnit->add(decl);
+				// Popout the parameters Decl-Context
+				context.pop_context();
 			} else if (dynamic_cast<IdentifierDeclarator*>(declarator) != nullptr && dynamic_cast<FunctionType*>($2->RepresentType().get()) != nullptr)
 			{
 				error(@$,"warnning : WTF! declaring a function type object is not allow.");
@@ -274,7 +300,7 @@ TypeDefination
 	: TYPEDEF QualifiedTypeSpecifier DeclaratorList
 	{
 		$$ = new TypedefStmt($2,$3);
-		for (auto declarator : *$3)
+		for (auto declarator : $$->DeclaratorList())
 		{
 			auto decl = new TypedefDeclaration($2->RepresentType(),declarator);
 			decl -> SetSourceNode($$);
@@ -300,7 +326,14 @@ DeclaratorList
 Declarator
 	: DeclaratorPointer DirectDeclarator
 	{
-		$$ = new PointerDeclarator($1,$2);
+		auto& list = *$1;
+		Declarator *declarator = $2;
+		for (auto itr = list.rbegin();itr!=list.rend();++itr)
+		{
+			declarator = new PointerDeclarator(*itr,declarator);
+			declarator->SetLocation(@$);
+		}
+		$$ = declarator;
 		$$->SetLocation(@$);
 	}
 	| DirectDeclarator
@@ -362,7 +395,7 @@ InitDeclarator
 	{
 		$$ = $1;
 	}
-	| Declarator ASSIGN Initializer
+	| Declarator "=" Initializer
 	{
 		$$ = new InitDeclarator($1,$3);
 		$$->SetLocation(@$);
@@ -372,30 +405,30 @@ InitDeclarator
 Initializer
 	: ConstantExpr
 	{
-		$$ = new Initializer($1);
+		$$ = new AtomInitializer($1);
 		$$->SetLocation(@$);
 	}
-	| LBRACE InitializerList RBRACE
+	| "{" InitializerList "}"
 	{
-		$$ = new InitializerList($2);
+		$$ = $2;
 		$$->SetLocation(@$);
 	}
-	| LBRACE InitializerList COMMA RBRACE
+	| "{" InitializerList COMMA "}"
 	{
-		$$ = new InitializerList($2);
+		$$ = $2;
 		$$->SetLocation(@$);
 	}
 	;
 
 InitializerList
-	: InitializerList COMMA Initializer
+	: InitializerList "," Initializer
 	{
 		$$ = $1;
 		$$->push_back($3);
 	}
 	| Initializer
 	{
-		$$ = new std::list<Initializer*>();
+		$$ = new InitializerList(context.type_context);
 		$$->push_back($1);
 	}
 	;
@@ -403,7 +436,14 @@ InitializerList
 AbstractDeclarator
 	: DeclaratorPointer DirectAbstractDeclarator
 	{
-		$$ = new PointerDeclarator($1,$2);
+		auto& list = *$1;
+		Declarator *declarator = $2;
+		for (auto itr = list.rbegin();itr!=list.rend();++itr)
+		{
+			declarator = new PointerDeclarator(*itr,declarator);
+			$$->SetLocation(@$);
+		}
+		$$ = declarator;
 		$$->SetLocation(@$);
 	}
 	| DirectAbstractDeclarator
@@ -467,11 +507,13 @@ ParameterList
 	{
 		$$ = $1;
 		$$->add($3);
+		$3->SetParent($$);
 	}
 	| ParameterDeclaration
 	{
 		$$ = new ParameterList();
 		$$->add($1);
+		$1->SetParent($$);
 	}
 	;
 
@@ -523,15 +565,15 @@ TypeQualifierList
 TypeSpecifier
 	: VOID
 	{
-		$$ = new PrimaryTypeSpecifier(context.TypeContext->Void());
+		$$ = new PrimaryTypeSpecifier(context.type_context->Void());
 	}
 	| INT
 	{
-		$$ = new PrimaryTypeSpecifier(context.TypeContext->Int());
+		$$ = new PrimaryTypeSpecifier(context.type_context->Int());
 	}
 	| FLOAT
 	{
-		$$ = new PrimaryTypeSpecifier(context.TypeContext->Float());
+		$$ = new PrimaryTypeSpecifier(context.type_context->Float());
 	}
 	| RecordSpecifier
 	{
@@ -543,7 +585,7 @@ TypeSpecifier
 	}
 	| TypeIdentifier
 	{
-		$$ = new TypedefNameSpecifier($1);
+		$$ = new TypedefNameSpecifier(context.current_context(),$1);
 		/*auto decl = dynamic_cast<TypeDeclaration*>(context.current_context()->Lookup(*$1));
 		assert(decl != nullptr);
 		$$ = decl->DeclType();*/
@@ -582,6 +624,10 @@ StorageClassSpecifier
 	{
 		$$ = $1;
 	}
+	| %empty
+	{
+		$$ = SCS_NONE;
+	}
 	;
 
 RecordSpecifier
@@ -609,7 +655,13 @@ RecordHeader
 	: RecordKeyword Identifier
 	{
 		auto decl = new StructDeclaration($2);
-		context.current_context()->add(decl);
+		auto res = context.current_context()->add(decl);
+		if (res != DeclContext::InsertionResult::Success_CompatibleRedefinition)
+		{
+			auto type = context.type_context->NewRecordType($1,$2);
+			decl->SetDeclType(type);
+			decl->SetRepresentType(type);
+		}
 		$$ = decl;
 		$$ -> SetLocation(@$);
 
@@ -656,23 +708,28 @@ RecordKeyword
 EnumSpecifier
 	: ENUM Identifier LBRACE EnumeratorList RBRACE
 	{
-		$$ = new EnumSpecifier($2,$4);
+		$$ = nullptr;
+		//$$ = new EnumSpecifier($2,$4);
 	}
 	| ENUM Identifier LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = new EnumSpecifier($2,$4);
+		$$ = nullptr;
+		//$$ = new EnumSpecifier($2,$4);
 	}
 	| ENUM LBRACE EnumeratorList RBRACE
 	{
-		$$ = new EnumSpecifier($3);
+		$$ = nullptr;
+		//$$ = new EnumSpecifier($3);
 	}
 	| ENUM LBRACE EnumeratorList COMMA RBRACE
 	{
-		$$ = new EnumSpecifier($3);
+		$$ = nullptr;
+		//$$ = new EnumSpecifier($3);
 	}
 	| ENUM Identifier
 	{
-		$$ = new EnumSpecifier($2);
+		$$ = nullptr;
+		//$$ = new EnumSpecifier($2);
 	}
 	;
 
@@ -720,13 +777,14 @@ FieldDeclaration
 	{
 		auto compound_decl = new FieldDeclStmt($1,$2);
 		compound_decl -> SetLocation(@$);
-		for (auto declarator : *$2)
+		for (auto declarator : compound_decl->DeclaratorList())
 		{
 			auto decl = new FieldDeclaration($1->RepresentType(),declarator);
 			decl -> SetSourceNode(compound_decl);
 			context.current_context()->add(decl);
 			// Handel redefination
 		}
+		$$ = compound_decl;
 	}
 	;
 
@@ -824,7 +882,8 @@ PosfixExpr
 	}
 	| PosfixExpr LPAREN RPAREN
 	{
-		$$ = new CallExpr($1,nullptr);
+		auto empty_list = new std::list<AST::Expr*>();
+		$$ = new CallExpr($1,empty_list);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr DOT Identifier
@@ -989,12 +1048,12 @@ EqualityExpr
 	{
 		$$ = $1;
 	}
-	| EqualityExpr EQL RelationExpr
+	| EqualityExpr "==" RelationExpr
 	{
 		$$ = new ArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
-	| EqualityExpr NEQ RelationExpr
+	| EqualityExpr "!=" RelationExpr
 	{
 		$$ = new ArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
@@ -1113,13 +1172,15 @@ ConstantExpr
 	}
 
 ArgumentList
-	: ArgumentList COMMA AssignExpr
+	: ArgumentList "," AssignExpr
 	{
+		//cout << "ArgList : ArgList , AssignExpr" << endl;
 		$$ = $1;
 		$$->push_back($3);
 	}
 	| AssignExpr
 	{
+		//cout << "ArgList : AssignExpr" << endl;
 		$$ = new std::list<Expr*>();
 	}
 	;
@@ -1169,15 +1230,11 @@ Stmt
 	;
 
 CompoundStmt
-	: LBRACE RBRACE
+	: "{" StmtList "}"
 	{
-		$$ = new CompoundStmt(nullptr);
+		$$ = $2;
 		$$->SetLocation(@$);
-	}
-	| LBRACE StmtList RBRACE
-	{
-		$$ = new CompoundStmt($2);		
-		$$->SetLocation(@$);
+		context.pop_context();
 	}
 	;
 
@@ -1185,12 +1242,12 @@ StmtList
 	: StmtList Stmt
 	{
 		$$ = $1;
-		$$->push_back($2);
+		$$->Children().push_back($2);
 	}
-	| Stmt
+	| %empty
 	{
-		$$ = new std::list<Stmt*>();
-		$$->push_back($1);
+		$$ = new CompoundStmt();
+		context.push_context($$);
 	}
 	;
 
@@ -1223,7 +1280,7 @@ DeclStmt
 IterationStmt
 	: FOR "(" Stmt ExprStmt Expr ")" Stmt
 	{
-		Stmt* post_action = new ExprStmt($5);
+		//Stmt* post_action = new ExprStmt($5);
 		ExprStmt* expr_stmt = dynamic_cast<ExprStmt*>($4);
 		Expr* condition;
 		if (expr_stmt != nullptr)
@@ -1238,7 +1295,7 @@ IterationStmt
 			condition = nullptr;
 		}
 
-		$$ = new ForStmt($3,condition,post_action,$7);
+		$$ = new ForStmt($3,condition,$5,$7);
 		$$->SetLocation(@$);
 	}
 	| FOR "(" Stmt ExprStmt ")" Stmt
@@ -1331,7 +1388,9 @@ Label
 
 // We have to implement the error function
 void C1::BisonParser::error(const C1::BisonParser::location_type &loc, const std::string &msg) {
-	std::cerr << "Error: " << msg << std::endl;
+	std::cerr << "Error @" << loc.begin.line << "(" << loc.begin.column << ")" ;
+	std::cerr << " - @"  << loc.end.line << "(" << loc.end.column << ")" ;
+	std::cerr << msg << std::endl;
 }
 
 // Now that we have the Parser declared, we can declare the Scanner and implement

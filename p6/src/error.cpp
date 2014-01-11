@@ -2,6 +2,7 @@
  * Functions of Error Messages and their Container
  * Author: Yu Zhang (yuzhang@ustc.edu.cn)
  */
+#include "stdafx.h"
 
 #include "error.h"
 

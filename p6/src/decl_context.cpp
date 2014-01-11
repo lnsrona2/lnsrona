@@ -1,65 +1,70 @@
+#include "stdafx.h"
+
 #include "decl_context.h"
 #include "declaration.h"
-#include <algorithm>
+#include "ast.h"
+
 using namespace C1::AST;
+using namespace std;
 
-DeclContext::InsertionResult DeclContext::add(Declaration* declaration)
+//DeclContext::InsertionResult DeclContext::add(Declaration* declaration)
+//{
+//	Indexize();
+//
+//	m_ListView.push_back(declaration);
+//
+//	declaration->SetAffiliation(this);
+//	return Success;
+//}
+
+
+//C1::AST::DeclContext::InsertionResult C1::AST::DeclContext::add(ValueDeclaration* obj)
+//{
+//	add(obj,NameCollisonPolicy::AlwaysRedefinable);
+//}
+
+C1::AST::DeclContext::InsertionResult C1::AST::DeclContext::add(Declaration* declaration)
 {
-	if (!m_pTableView && m_ListView.size() >= IndexizeThreshold)
-		Indexize();
-
-	m_ListView.push_back(declaration);
-	if (m_pTableView)
-	{
-		auto pNameDecl = dynamic_cast<NamedDeclaration*>(declaration);
-		m_pTableView->insert(std::make_pair(pNameDecl->Name(), pNameDecl));
-	}
-	return Success;
+	Indexize();
+	return declaration->AddToContext(*this);
 }
 
-DeclContext::InsertionResult DeclContext::add(NamedDeclaration* declaration, NameCollisonPolicy name_policy)
+void C1::AST::DeclContext::force_add(NamedDeclaration* decl)
 {
-	if (!m_pTableView && m_ListView.size() >= IndexizeThreshold)
-		Indexize();
-
-	InsertionResult result = Success;
-	auto decl = lookup_local(declaration->Name());
-	if (decl)
-	{
-		if (Declaration::CheckCompatible(decl, declaration))
-			result = Success_CompatibleRedefinition;
-		else
-			result = Success_IncompatibleRedefinition;
+	m_ListView.push_back(decl);
+	if (m_pTableView) {
+		std::pair<std::reference_wrapper<const std::string>, NamedDeclaration*> pa(decl->Name(), decl);
+		m_pTableView->insert(pa);
 	}
-	if (result > name_policy)
-		return InsertionResult(result + 2);
-
-	m_ListView.push_back(declaration);
-	if (m_pTableView)
-		m_pTableView->insert(std::make_pair(declaration->Name(), declaration));
-	declaration->SetAffiliation(this);
-	return result;
+	decl->SetAffiliation(this);
 }
 
+void C1::AST::DeclContext::force_add(Declaration* decl)
+{
+	m_ListView.push_back(decl);
+	decl->SetAffiliation(this);
+}
 
 void DeclContext::Indexize()
 {
-	if (m_pTableView) return;
-	m_pTableView = std::make_unique<std::multimap<std::string, NamedDeclaration*>>();
+	if (m_pTableView || m_ListView.size() < IndexizeThreshold) return;
+	m_pTableView = std::make_unique<std::multimap<std::reference_wrapper<const std::string>, NamedDeclaration*>>();
 	for (auto itr = m_ListView.rbegin(); itr != m_ListView.rend(); ++itr)
 	{
 		auto pNameDecl = dynamic_cast<NamedDeclaration*>(*itr);
-		m_pTableView->insert(std::make_pair(pNameDecl->Name(), pNameDecl));
+		std::pair<std::reference_wrapper<const std::string>, NamedDeclaration*> pa(pNameDecl->Name(), pNameDecl);
+		m_pTableView->insert(pa);
 	}
 }
 
-const Declaration* DeclContext::lookup_local(const std::string& name) const
+const NamedDeclaration* DeclContext::lookup_local(const std::string& name) const
 {
 	if (m_pTableView)
 	{
 		auto itr = m_pTableView->find(name);
 		if (itr != m_pTableView->end())
 			return itr->second;
+		return nullptr;
 	}
 	else
 	{
@@ -69,11 +74,13 @@ const Declaration* DeclContext::lookup_local(const std::string& name) const
 			auto name_decl = dynamic_cast<const NamedDeclaration*>(decl);
 			return name_decl && name_decl->Name() == name;
 		});
-		return *itr;
+		if (itr == m_ListView.rend())
+			return nullptr;
+		return static_cast<NamedDeclaration*>(*itr);
 	}
 }
 
-const Declaration* DeclContext::lookup(const std::string &name) const
+const NamedDeclaration* DeclContext::lookup(const std::string &name) const
 {
 	const DeclContext* pContext = this;
 	while (pContext)

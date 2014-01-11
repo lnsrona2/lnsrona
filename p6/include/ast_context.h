@@ -30,10 +30,14 @@ namespace C1
 			//DeclContext*	CurrentDeclContext();
 
 			// The type context object for creating and retrieving predefined types
-			TypeContext*	TypeContext;
+			TypeContext*	type_context;
 
 			void push_context(DeclContext* decl_context)
 			{
+				if (!m_DeclStack.empty())
+					decl_context->set_parent(m_DeclStack.top());
+				else
+					decl_context->set_parent(nullptr);
 				m_DeclStack.push(decl_context);
 			}
 

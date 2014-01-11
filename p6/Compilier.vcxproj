@@ -80,16 +80,37 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ast.cpp" />
+    <ClCompile Include="ast.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\ast_node.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\c1.lex.cpp" />
     <ClCompile Include="src\c1.tab.cpp" />
-    <ClCompile Include="src\decl_context.cpp" />
-    <ClCompile Include="src\driver.cpp" />
-    <ClCompile Include="src\error.cpp" />
+    <ClCompile Include="src\declaration.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\decl_context.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\driver.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\error.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\type.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\ast.h" />
     <ClInclude Include="include\ast_context.h" />
+    <ClInclude Include="include\ast_node.h" />
     <ClInclude Include="include\cparser.h" />
     <ClInclude Include="include\cscanner.h" />
     <ClInclude Include="include\declaration.h" />
@@ -101,6 +122,7 @@
     <ClInclude Include="include\error.h" />
     <ClInclude Include="include\opcfg.h" />
     <ClInclude Include="include\pcodegen.h" />
+    <ClInclude Include="include\stdafx.h" />
     <ClInclude Include="include\type.h" />
     <ClInclude Include="include\type_qualifiers.h" />
     <ClInclude Include="src\c1.tab.hpp" />

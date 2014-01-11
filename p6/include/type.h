@@ -11,11 +11,11 @@ namespace C1
 {
 	namespace AST
 	{
+		// Forward declarations
 		class DeclContext;
-		//class RecordDeclaration;
-		//class StructBody;
 		class Declaration;
 		class Declarator;
+		class TypeContext;
 
 		// Represent an type in the program , it's an Semantic entity
 		class Type
@@ -38,43 +38,64 @@ namespace C1
 				Struct,
 				Union,
 				Enum,
+				InitializerList,
 				Typedef,
 			};
+		protected:
+			TypeKindEnum m_Kind;
+
+		public:
+			TypeKindEnum Kind() const
+			{ return m_Kind; }
+			virtual bool IsPointerType() const;
+			virtual bool IsArrayType() const;
+			virtual bool IsBasicType() const;
+			virtual bool IsIntegerType() const;
+			virtual bool IsFunctionType() const;
+			virtual bool IsStructType() const;
+			virtual bool IsAliasType() const;
+			virtual bool IsInitializerListType() const;
+			virtual bool IsArithmeticType() const;
 			virtual std::string ToString() const;
-			virtual size_t Size() const;
-			virtual size_t Alignment() const;
+			virtual size_t Size() const = 0;
+			virtual size_t Alignment() const = 0;
+			virtual bool Match(const Type* type) const = 0;
+
 			virtual ~Type();
 
+			TypeContext* AffiliatedContext();
+			const TypeContext* AffiliatedContext() const;
+			void SetAffiliatedContext(TypeContext* val);
+
 		protected:
-			Type(TypeKindEnum kind)
-				: m_Kind(kind)
-			{}
+			Type(TypeKindEnum kind);
 
-			Type()
-				: m_Kind(Unknown)
-			{}
+			Type();
 
-			TypeKindEnum m_Kind;
+			TypeContext* m_AffiliatedContext;
 		};
 
-		bool type_match(const Type &lhs, const Type &rhs);
-		inline bool operator==(const Type &lhs, const Type &rhs)
-		{
-			return type_match(lhs, rhs);
-		}
+		//enum TypeMatchResult
+		//{
+		//	Matched = 0,
+		//	ContextDismatch,
+		//	QualifierDismatch,
+		//	StructureDismatch,
+		//	RecordNameDismatch,
+		//};
 
 		// Serve as an pointer of "Type" class, but provide qualifier information
 		class QualType
 		{
 		public:
-			QualType(Type *pType, int qualifiers_mask)
+			QualType(Type *pType = nullptr, int qualifiers_mask = 0)
 				: m_type(pType), m_qulifier_mask(qualifiers_mask)
 			{
 			}
 
-			QualType()
-				: m_type(nullptr), m_qulifier_mask(0)
-			{}
+			//QualType()
+			//	: m_type(nullptr), m_qulifier_mask(0)
+			//{}
 
 			int Qualifiers() const
 			{
@@ -120,6 +141,16 @@ namespace C1
 				m_qulifier_mask &= ~TypeQualifierEnum::CONST;
 			}
 
+			void AddQualifiers(int qualfiers_mask)
+			{
+				m_qulifier_mask |= qualfiers_mask;
+			}
+
+			void RemoveQualifiers(int qualfiers_mask)
+			{
+				m_qulifier_mask &= ~qualfiers_mask;
+			}
+
 			inline const Type &operator*() const{
 				return *m_type;
 			}
@@ -136,7 +167,19 @@ namespace C1
 				return m_type;
 			}
 
-		protected:
+			template<typename TargetType>
+			inline TargetType* As()
+			{
+				return dynamic_cast<TargetType*>(m_type);
+			}
+
+			template<typename TargetType>
+			inline const TargetType* As() const
+			{
+				return dynamic_cast<const TargetType*>(m_type);
+			}
+
+		public:
 
 			static const std::string& QulifierMaskToString(unsigned int qulifier_mask)
 			{
@@ -152,49 +195,106 @@ namespace C1
 			int m_qulifier_mask;
 		};
 
-		class PointerType : public Type
+		//bool type_match(const Type &lhs, const Type &rhs);
+		bool type_match(QualType lhs, QualType rhs);
+		inline bool operator==(const QualType &lhs, const QualType &rhs)
+		{
+			return type_match(lhs, rhs);
+		}
+
+		inline
+		QualType MakeConst(Type* type)
+		{
+			return QualType(type, TypeQualifierEnum::CONST);
+		}
+
+		class InitializerListType : public Type
 		{
 		public:
-			static const TypeKindEnum class_kind = Pointer;
-			PointerType(QualType base)
-				: Type(class_kind), m_base(base)
-			{
-			}
+			static const TypeKindEnum class_kind = InitializerList;
+			InitializerListType(TypeContext* context);
+			std::list<QualType>& ElementTypes() { return m_ElementTypes; }
+			const std::list<QualType>& ElementTypes() const { return m_ElementTypes; }
+			~InitializerListType();
+			virtual size_t Size() const;
+
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
+		protected:
+			std::list<QualType> m_ElementTypes;
+		};
+
+		class DereferencableType : public Type
+		{
+		public:
+			QualType Base();
 			const QualType Base() const;
-		private:
+			~DereferencableType();
+		protected:
+			DereferencableType(TypeKindEnum kind, QualType base);
+			DereferencableType(QualType base);
+			DereferencableType();
 			QualType m_base;
 		};
 
-		class ArrayType : public Type
+		class PointerType : public DereferencableType
+		{
+		public:
+			static const TypeKindEnum class_kind = Pointer;
+			PointerType(QualType base);
+			~PointerType();
+			virtual size_t Size() const;
+
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
+			virtual std::string ToString() const;
+
+		};
+
+		class ArrayType : public DereferencableType
 		{
 		public:
 			static const TypeKindEnum class_kind = Array;
-			ArrayType(QualType base, size_t size)
-				: Type(class_kind), m_base(base), m_size(size)
-			{}
-			const QualType Base() const;
-			int Length() const;
-		private:
-			QualType m_base;
+			ArrayType(QualType base, size_t size);
+			~ArrayType();
+			// Return the number count of this array
+			int Length() const { return m_size; }
+
+			virtual size_t Size() const;
+
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
+			virtual std::string ToString() const;
+
+		protected:
 			size_t m_size;
 		};
 
 		class RecordType : public Type
 		{
 		public:
+			~RecordType();
 			static const TypeKindEnum class_kind = Unknown;
-			RecordType(TypeKindEnum kind, const std::string &name, DeclContext* define = nullptr)
-				: Type(kind), m_Name(name), m_Members(define)
-			{}
+			RecordType(TypeKindEnum kind, const std::string &name, DeclContext* define = nullptr);
+			
 			const std::string& Name() const { return m_Name; }
 			bool IsCompleted() const { return m_Members != nullptr; }
 
-			// We don't discard all the member's name detail here becaus we need them
+			// We don't discard all the member's name detail here because we need them
 			DeclContext* Members() { return m_Members; }
 			const DeclContext* Members() const { return m_Members; }
+			DeclContext* Definition() { return m_Members; }
+			const DeclContext* Definition() const { return m_Members; }
 
 			void SetDefinition(DeclContext* define) { m_Members = define; }
 
+			static const char AnonymousName[];
 		protected:
 			std::string m_Name;
 			DeclContext* m_Members;
@@ -203,27 +303,41 @@ namespace C1
 		class StructType : public RecordType
 		{
 		public:
+			~StructType();
 			static const TypeKindEnum class_kind = Struct;
-			StructType(const std::string &name = "%anonymous", DeclContext* define = nullptr)
-				: RecordType(Struct,name,define)
-			{}
+			StructType(const std::string &name = "%anonymous", DeclContext* define = nullptr);
+
+			virtual size_t Size() const;
+
+			// This maybe not right... 
+			// should it be the "minimum public quality" of all the member's alignment?
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
+			virtual std::string ToString() const;
+
 		};
 
 		class FunctionType : public Type
 		{
 		public:
+			~FunctionType();
 			static const TypeKindEnum class_kind = Function;
-			FunctionType(QualType return_type, const std::list<QualType>& parameters)
-				: Type(class_kind), m_ReturnType(return_type), m_Parameters(parameters)
-			{}
-			FunctionType(QualType return_type, std::list<QualType>&& parameters)
-				: Type(class_kind), m_ReturnType(return_type), m_Parameters(std::move(parameters))
-			{}
-			QualType ReturnType();
-			const QualType ReturnType() const;
+			FunctionType(QualType return_type, const std::list<QualType>& parameters);
+			FunctionType(QualType return_type, std::list<QualType>&& parameters);
+			QualType ReturnType() { return m_ReturnType; }
+			const QualType ReturnType() const { return m_ReturnType; }
 			// Since it's an type, we discard all the parameter's name
-			std::list<QualType>& Parameters();
-			const std::list<QualType>& Parameters() const;
+			std::list<QualType>& Parameters() { return m_Parameters; }
+			const std::list<QualType>& Parameters() const { return m_Parameters; }
+
+			virtual size_t Size() const;
+
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
 		private:
 			QualType m_ReturnType;
 			std::list<QualType> m_Parameters;
@@ -232,7 +346,6 @@ namespace C1
 		class EnumType : public RecordType
 		{
 			static const TypeKindEnum class_kind = Enum;
-
 		};
 
 		class UnionType : public RecordType
@@ -245,7 +358,7 @@ namespace C1
 		public:
 			static const TypeKindEnum class_kind = Basic;
 			typedef Type::TypeKindEnum TypeKindEnum;
-
+			~BasicType();
 			size_t Size() const {
 				return m_Size;
 			}
@@ -253,13 +366,13 @@ namespace C1
 			size_t Alignment() const {
 				return m_Alignment;
 			}
+
+			virtual bool Match(const Type* type) const;
+
 		protected:
-			BasicType(TypeKindEnum kind, size_t size, size_t alignment)
-				: Type(kind), m_Size(size), m_Alignment(alignment)
-			{}
-			BasicType(TypeKindEnum kind, size_t size)
-				: Type(kind), m_Size(size), m_Alignment(0)
-			{}
+			BasicType(TypeKindEnum kind, size_t size, size_t alignment);
+			BasicType(TypeKindEnum kind, size_t size);
+
 
 			size_t m_Size;
 			size_t m_Alignment;
@@ -268,79 +381,186 @@ namespace C1
 		{
 		public:
 			static const TypeKindEnum class_kind = Void;
-			VoidType()
-				: BasicType(Void,0,0)
-			{}
+			VoidType();
+
+			virtual std::string ToString() const;
+
 		};
 		class BooleanType : public BasicType
 		{
 		public:
 			static const TypeKindEnum class_kind = Integer;
-			BooleanType()
-				: BasicType(Boolean, 0, 0)
-			{}
+			BooleanType();
+
+			virtual std::string ToString() const;
+
 		};
 		class IntegerType : public BasicType
 		{
+		public:
 			static const TypeKindEnum class_kind = Integer;
-			IntegerType()
-				: BasicType(Integer, 4,4)
-			{}
+			IntegerType();
+			IntegerType(size_t size);
+
+			virtual std::string ToString() const;
+
 		};
 		class CharacterType : public BasicType
 		{
+		public:
 			static const TypeKindEnum class_kind = Character;
-			CharacterType()
-				: BasicType(Character, 1, 1)
-			{}
+			CharacterType();
+
+			virtual std::string ToString() const;
+
 		};
 		class FloatType : public BasicType
 		{
+		public:
 			static const TypeKindEnum class_kind = Float;
-			FloatType()
-			: BasicType(Float, 4, 4)
-			{}
+			FloatType();
+
+			virtual std::string ToString() const;
+
 		};
+		// Represent a typedef type
+		class AliasType : public Type
+		{
+		public:
+			~AliasType();
+			AliasType(QualType aliasd_type, const std::string& name);
+			QualType Base() { return m_Base; }
+			const QualType Base() const { return m_Base; }
+			const std::string& Name() const { return m_Name; }
+			virtual bool IsPointerType() const
+			{ return m_Base->IsPointerType(); }
+			virtual bool IsArrayType() const
+			{ return m_Base->IsArrayType(); }
+			virtual bool IsBasicType() const
+			{ return m_Base->IsBasicType(); }
+			virtual bool IsFunctionType() const
+			{ return m_Base->IsFunctionType(); }
+			virtual bool IsStructType() const
+			{ return m_Base->IsStructType(); }
+			virtual bool IsAliasType() const
+			{ return true; }
+
+			virtual size_t Size() const;
+
+			virtual size_t Alignment() const;
+
+			virtual bool Match(const Type* type) const;
+
+			virtual std::string ToString() const;
+
+		protected:
+			QualType m_Base;
+			std::string m_Name;
+		};
+
+		//StructType*	MakeStruct(const std::string& name, std::list<Declaration*>* field_decl_list);
+		//StructType*	MakeStruct(std::list<Declaration*>* field_decl_list);
+		//StructType*	MakeStruct(const std::string& name);
+		//FunctionType* MakeFunction(QualType return_type, const std::list<QualType>& parameter_type_list);
+		//FunctionType* MakeFunction(QualType return_type, std::list<QualType>&& parameter_type_list);
+		//EnumType*	MakeEnum(const std::string& name, std::list<Declarator*>* enumerator_list);
+		//EnumType*	MakeEnum(std::list<Declarator*>* enumerator_list);
+		//EnumType*	MakeEnum(const std::string& name);
+		//UnionType*	MakeUnionType();
 
 		class TypeContext
 		{
 		public:
-			const Type*			NewTypeFromTypeSpecifier();
-			const QualType*		NewTypeFromSpecifierQualifierList();
+			TypeContext();
+
+			//QualType	NewTypeFromDeclarator(QualType base_type,Declarator* declarator);
 			//const Type*			NewTypeFromDeclarator();
 
 			PointerType*NewPointerType(QualType base);
 			ArrayType*	NewArrayType(QualType base, size_t size);
-			StructType*	NewStructType(const std::string& name, std::list<Declaration*>* field_decl_list);
-			StructType*	NewStructType(std::list<Declaration*>* field_decl_list);
+			//StructType*	NewStructType(const std::string& name, std::list<Declaration*>* field_decl_list);
+			//StructType*	NewStructType(std::list<Declaration*>* field_decl_list);
 			StructType*	NewStructType(const std::string& name);
-			EnumType*	NewEnumType(const std::string& name, std::list<Declarator*>* enumerator_list);
-			EnumType*	NewEnumType(std::list<Declarator*>* enumerator_list);
-			EnumType*	NewEnumType(const std::string& name);
-			UnionType*	NewUnionType();
+			RecordType* NewRecordType(RecordKeywordEnum record_type, const std::string& name = "%anonymous");
+			//FunctionType* NewFunctionType(QualType return_type,const std::list<QualType>& parameter_type_list);
+			FunctionType* NewFunctionType(QualType return_type, std::list<QualType>&& parameter_type_list);
+			//EnumType*	NewEnumType(const std::string& name, std::list<Declarator*>* enumerator_list);
+			//EnumType*	NewEnumType(std::list<Declarator*>* enumerator_list);
+			//EnumType*	NewEnumType(const std::string& name);
+			//UnionType*	NewUnionType();
+			AliasType*	NewAliasType(QualType base, const std::string& alias);
+			InitializerListType* NewInitializerListType();
 
-			const IntegerType*	Char() const;
-			const IntegerType*	Short() const;
-			const IntegerType*	Int() const;
-			const IntegerType*	UnsignedChar() const;
-			const IntegerType*	UnsignedShort() const;
-			const IntegerType*	UnsignedInt() const;
-			const BooleanType*	Bool() const;
-			const VoidType*		Void() const;
-			const FloatType*	Float() const;
-			const FloatType*	Double() const;
+			const IntegerType*	Char() const { return m_Char.get(); }
+			const IntegerType*	Short() const { return m_Short.get(); }
+			const IntegerType*	Int() const { return m_Int.get(); }
+			const IntegerType*	Long() const { return m_Long.get(); }
+			const IntegerType*	UnsignedChar() const { return m_UnsignedChar.get(); }
+			const IntegerType*	UnsignedShort() const { return m_UnsignedShort.get(); }
+			const IntegerType*	UnsignedInt() const { return m_UnsignedInt.get(); }
+			const BooleanType*	Bool() const { return m_Bool.get(); }
+			const VoidType*		Void() const { return m_Void.get(); }
+			const FloatType*	Float() const { return m_Float.get(); }
+			const FloatType*	Double() const { return m_Double.get(); }
+			// The alias for char*
+			const PointerType*	String() const { return m_String.get(); }
 
-			IntegerType*	Char();
-			IntegerType*	Short();
-			IntegerType*	Int();
-			IntegerType*	UnsignedChar();
-			IntegerType*	UnsignedShort();
-			IntegerType*	UnsignedInt();
-			BooleanType*	Bool();
-			VoidType*		Void();
-			FloatType*	Float();
-			FloatType*	Double();
+			IntegerType*	Char() { return m_Char.get(); }
+			IntegerType*	Short() { return m_Short.get(); }
+			IntegerType*	Int() { return m_Int.get(); }
+			IntegerType*	Long() { return m_Long.get(); }
+			IntegerType*	UnsignedChar() { return m_UnsignedChar.get(); }
+			IntegerType*	UnsignedShort() { return m_UnsignedShort.get(); }
+			IntegerType*	UnsignedInt() { return m_UnsignedInt.get(); }
+			BooleanType*	Bool() { return m_Bool.get(); }
+			VoidType*		Void() { return m_Void.get(); }
+			FloatType*		Float() { return m_Float.get(); }
+			FloatType*		Double() { return m_Double.get(); }
+			PointerType*	String() { return m_String.get(); }
+
+			size_t	AddressWidth() const { return m_AddressWidth; }
+			size_t	AddressAlignment() const { return m_AddressAllignment; }
+			//void	SetPointerSize(size_t val) { m_AddressWidth = val; }
+
+			size_t	WordSize() const { return m_WordSize; }
+			size_t	WordAllignment() const { return m_WordAlignment; }
+			//void	SetIntSize(size_t val) { m_IntSize = val; }
+		protected:
+			std::unique_ptr<IntegerType>	m_Char;
+			std::unique_ptr<IntegerType>	m_Short;
+			std::unique_ptr<IntegerType>	m_Int;
+			std::unique_ptr<IntegerType>	m_Long;
+			std::unique_ptr<IntegerType>	m_UnsignedChar;
+			std::unique_ptr<IntegerType>	m_UnsignedShort;
+			std::unique_ptr<IntegerType>	m_UnsignedInt;
+			std::unique_ptr<BooleanType>	m_Bool;
+			std::unique_ptr<VoidType>		m_Void;
+			std::unique_ptr<FloatType>		m_Float;
+			std::unique_ptr<FloatType>		m_Double;
+			std::unique_ptr<PointerType>	m_String;
+
+			size_t							m_AddressWidth;
+			size_t							m_AddressAllignment;
+			size_t							m_WordSize;
+			size_t							m_WordAlignment;
+
+			std::list<std::unique_ptr<Type>> m_ResourcesPool;
 		};
+
+		inline PointerType	*MakePointer(QualType base)
+		{
+			return base->AffiliatedContext()->NewPointerType(base);
+		}
+
+		inline ArrayType	*MakeArray(QualType base, size_t size)
+		{
+			return base->AffiliatedContext()->NewArrayType(base, size);
+		}
+
+		inline AliasType	*MakeAlias(QualType base, const std::string& alias)
+		{
+			return base->AffiliatedContext()->NewAliasType(base, alias);
+		}
 	}
 }
 

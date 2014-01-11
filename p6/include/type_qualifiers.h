@@ -25,4 +25,61 @@ namespace C1
 		ENUM = 3,
 	};
 
+#ifdef _IOSTREAM_
+	inline std::ostream& operator<<(std::ostream& os, StorageClassSpecifierEnum scs)
+	{
+		switch (scs)
+		{
+		case 	SCS_EXTERN :
+			os << "extern ";
+			break;
+		case	SCS_STATIC:
+			os << "static ";
+			break;
+		case	SCS_AUTO:
+			os << "auto ";
+			break;
+		case	SCS_REGISTER:
+			os << "register ";
+			break;
+		case	SCS_NONE:
+		default:
+			break;
+		}
+		return os;
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, TypeQualifierEnum tq)
+	{
+		switch (tq)
+		{
+		case 	CONST :
+			os << "const ";
+		case	RESTRICT:
+			os << "restrict ";
+		case	VOLATILE:
+			os << "volatile ";
+		default:
+			break;
+		}
+		return os;
+	}
+
+	inline std::ostream& operator<<(std::ostream& os, RecordKeywordEnum rk)
+	{
+		switch (rk)
+		{
+		case 	STRUCT:
+			os << "struct ";
+		case	UNION:
+			os << "union ";
+		case	ENUM:
+			os << "enum ";
+		default:
+			break;
+		}
+		return os;
+	}
+#endif
+
 }

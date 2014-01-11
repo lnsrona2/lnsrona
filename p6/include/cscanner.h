@@ -33,6 +33,7 @@ namespace C1 {
 
 		inline symbol_type NextToken()
 		{
+			current_symbol.~basic_symbol();
 			yylex();
 			return current_symbol;
 		}

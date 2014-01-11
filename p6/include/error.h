@@ -2,7 +2,7 @@
 #ifndef _ERROR_H
 #define _ERROR_H
 
-#include "location.hh"
+#include "../src/location.hh"
 #include <string>
 #include <vector>
 

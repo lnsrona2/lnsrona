@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <iterator>
+#include "ast_node.h"
 #include "decl_context.h"
 #include "type.h"
 
@@ -15,12 +16,6 @@ namespace C1
 {
 	namespace AST
 	{
-		class DeclContext;
-		class Node;
-		class Initializer;
-		class CompoundStmt;
-		class Stmt;
-		class Declarator;
 
 		template <typename DeclarationType>
 		class Redeclarable
@@ -35,35 +30,35 @@ namespace C1
 
 			const DeclarationType* first() const
 			{
-				DeclarationType* decl = this;
+				auto decl = this;
 				while (decl->prev()) decl = decl->prev();
-				return decl;
+				return static_cast<const DeclarationType*>(decl);
 			}
 			DeclarationType* first()
 			{
-				DeclarationType* decl = this;
+				auto decl = this;
 				while (decl->prev()) decl = decl->prev();
-				return decl;
+				return static_cast<DeclarationType*>(decl);
 			}
 			const DeclarationType* last() const
 			{
-				DeclarationType* decl = this;
+				auto decl = this;
 				while (decl->next()) decl = decl->next();
-				return decl;
+				return static_cast<const DeclarationType*>(decl);
 			}
 			DeclarationType* last()
 			{
-				DeclarationType* decl = this;
+				auto decl = this;
 				while (decl->next()) decl = decl->next();
-				return decl;
+				return static_cast<DeclarationType*>(decl);
 			}
-			DeclarationType* add_last(DeclarationType* new_decl)
+			void add_last(DeclarationType* new_decl)
 			{
 				auto decl = last();
 				decl->m_pNext = new_decl;
 				new_decl->m_pPrev = decl;
 			}
-			DeclarationType* add_first(DeclarationType* new_decl)
+			void add_first(DeclarationType* new_decl)
 			{
 				auto decl = first();
 				decl->m_pPrev = new_decl;
@@ -120,10 +115,12 @@ namespace C1
 			Node* SourceNode() { return m_Source; }
 			void SetSourceNode(Node* source) { m_Source = source; }
 
+			// Invoked by DeclContext::add(Declaration*)
+			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
+			virtual ~Declaration();
 
-			virtual ~Declaration() = 0;
-
-			static bool CheckCompatible(Declaration* lsh, Declaration* rhs);
+			// Well , this is incorrect!!!
+			static bool CheckCompatible(const Declaration* lsh,const Declaration* rhs);
 		protected:
 			Declaration(KindEnum kind = DECL_UNKNOWN, DeclContext* affiliation = nullptr)
 				: m_Affiliation(nullptr), m_Kind(kind)
@@ -158,6 +155,8 @@ namespace C1
 				: m_name(name)
 			{}
 
+			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
+
 			std::string m_name;
 		};
 
@@ -173,34 +172,37 @@ namespace C1
 
 			StorageClassSpecifierEnum StorageClassSpecifier() const 
 				{ return m_storage_specifier; }
-		protected:
-			ValueDeclaration()
-			{}
-			ValueDeclaration(StorageClassSpecifierEnum scs, QualType decl_type, const std::string& name)
-				: NamedDeclaration(name), m_storage_specifier(scs), m_decltype(decl_type)
-			{}
 
+// 			const Declarator* DeclDeclarator() const { return m_Declarator.get(); }
+// 			Declarator* DeclDeclarator() { return m_Declarator.get(); }
+
+		protected:
+			ValueDeclaration();
+			~ValueDeclaration();
+			ValueDeclaration(StorageClassSpecifierEnum scs, QualType decl_type, const std::string& name);
+			ValueDeclaration(StorageClassSpecifierEnum scs, QualType base_type, Declarator* declarator);
+
+			//std::unique_ptr<Declarator>	m_Declarator;
 			StorageClassSpecifierEnum	m_storage_specifier;
 			QualType					m_decltype;
 		};
 
 		// represent a local/global variable
-		// A variable's declaration may not directly bind to an location since the exist of coumpound declaration
+		// A variable's declaration may not directly bind to an location since the exist of compound declaration
 		class VariableDeclaration : public ValueDeclaration//, Redeclarable<VariableDeclaration>
 		{
 		public:
 			VariableDeclaration(StorageClassSpecifierEnum storage_class_specifier, QualType qual_type, Declarator* p_declarator);
-			const Initializer* InitializeExpr() const;
+			const Initializer* InitializeExpr() const { return m_InitializerExpr; }
 
 		protected:
-			VariableDeclaration()
-			{
-				SetKind(DECL_VARIABLE);
-			}
+			VariableDeclaration();
+
+			Initializer*	m_InitializerExpr;
 		};
 
 		// Represent a struct field
-		// A field's declaration may not directly bind to an location since the exist of coumpound declaration
+		// A field's declaration may not directly bind to an location since the exist of compound declaration
 		class FieldDeclaration : public ValueDeclaration//, Redeclarable<FieldDeclaration>
 		{
 		public:
@@ -210,24 +212,87 @@ namespace C1
 			const Type* ParentRecordType() const;
 			const int AccessModifier() const;
 			const size_t Offset() const;
+			const Expr* OffsetExpr() const;
 
 		protected:
 			FieldDeclaration()
 			{
 				SetKind(DECL_FIELD);
 			}
+
+			size_t m_Offset;
+			Expr* m_OffsetExpr;
 		};
 
-		// Represent a function declaration
-		class FunctionDeclaration;
 
+		class QualifiedTypeSpecifier;
+		class FunctionalDeclarator;
+		class ParameterList;
+
+		class FunctionDeclaration : public Node, public ValueDeclaration, public Redeclarable<FunctionDeclaration>
+		{
+		public:
+			FunctionDeclaration(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier *qualified_type_specifier, FunctionalDeclarator* declarator);
+			~FunctionDeclaration();
+
+			const QualifiedTypeSpecifier* DeclTypeSpecifier() const { return m_type_specifier.get(); }
+
+			const FunctionalDeclarator* DeclDeclarator() const { return m_Declarator.get(); }
+			FunctionalDeclarator* DeclDeclarator() { return m_Declarator.get(); }
+
+			//const QualType FunctionType() const;
+			//QualType FunctionType() ;
+
+			Stmt* Definition()  { return m_Definition.get(); }
+			const Stmt* Definition() const { return m_Definition.get(); }
+			void SetDefinition(Stmt* def);
+			Stmt* LatestDefinition();
+			const Stmt* LatestDefinition() const;
+
+			ParameterList& Parameters();
+			QualType ReturnType();
+
+			void Dump(std::ostream&) const;
+
+			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
+
+		protected:
+			//Literal entities
+			std::unique_ptr<QualifiedTypeSpecifier>	m_type_specifier;
+			std::unique_ptr<FunctionalDeclarator>	m_Declarator;
+			std::unique_ptr<Stmt>					m_Definition;
+			//QualType								m_FunctionType;
+		};
+
+		// Represent an Parameter Declaration
+		// Literal & Semantic Entity
+		// Parameter's Declaration is not ambiguous , we can unify the literal and semantic entity
+		class ParameterDeclaration : public Node, public ValueDeclaration
+		{
+		public:
+			ParameterDeclaration(QualifiedTypeSpecifier*, Declarator*);
+			~ParameterDeclaration();
+			QualifiedTypeSpecifier* DeclSpecifier() { return m_QTSpecifier.get(); }
+			bool IsNamed() const;
+			void Dump(std::ostream&) const;
+
+			const Declarator* DeclDeclarator() const { return m_Declarator.get(); }
+			Declarator* DeclDeclarator() { return m_Declarator.get(); }
+			void SetDeclarator(Declarator* val) { m_Declarator.reset(val); }
+
+			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
+
+		protected:
+			std::unique_ptr<Declarator>				m_Declarator;
+			std::unique_ptr<QualifiedTypeSpecifier> m_QTSpecifier;
+		};
 
 		class TypeDeclaration : public NamedDeclaration
 		{
 		public:
-			const Type* DeclType() const;
-			Type* DeclType() ;
-			void SetDeclType(Type* type);
+			const Type* DeclType() const { return m_type; }
+			Type* DeclType() { return m_type; }
+			void SetDeclType(Type* type)  { m_type = type; }
 		protected:
 			Type* m_type;
 		};
@@ -236,12 +301,16 @@ namespace C1
 		{
 		public:
 			TypedefDeclaration(QualType qual_type, Declarator* p_declarator);
+			//const Declarator* DeclDeclarator() const { return m_Declarator; }
+			//Declarator* DeclDeclarator() { return m_Declarator; }
 
 		protected:
 			TypedefDeclaration()
 			{
 				SetKind(DECL_TYPEDEF);
 			}
+			//std::shared_ptr<QualifiedTypeSpecifier> m_QTSpecifier;
+			//Declarator*	m_Declarator;
 		};
 
 

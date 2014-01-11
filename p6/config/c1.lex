@@ -20,8 +20,8 @@ digit				[0-9]+
 octal				0[0-7]+	
 hex					0[Xx][0-9A-Fa-f]+
 unsigned			{digit}[uU]
-decimal				[{digit}]?"."{digit}[fFdD]
-sci_float			{decimal}[eE]["+""-"]?{digit}
+decimal				[+-]?({digit})?"."{digit}
+sci_float			{decimal}([eE]([+-])?{digit})?
 ident				[A-Za-z_][A-Za-z_0-9]*
 line_comment		"//"[^\n]+
 char_literal		"'"([^"'"\n])*"'"
@@ -60,11 +60,17 @@ typedef C1::BisonParser::token token;
 					yycomment += yytext;
 				}
 <COMMENT><<EOF>> {
-				    printf("Error : File end during comments.\n");	
+				    printf("Error : File end during comments.\n");
+				    current_symbol.move(C1::BisonParser::make_END(loc));
+				    return token::END;	
 				}
 {line_comment} 	{
 					loc.lines ();
 					loc.step (); 
+				}
+<<EOF>> 		{
+				    current_symbol.move(C1::BisonParser::make_END(loc));
+				    return token::END;	
 				}
 [\n] 			{ 
 					loc.lines ();
@@ -107,32 +113,41 @@ typedef C1::BisonParser::token token;
 "restrict"		{ current_symbol.move(C1::BisonParser::make_RESTRICT(RESTRICT,loc)); return token::RESTRICT; }
 "const"			{ current_symbol.move(C1::BisonParser::make_CONST(CONST,loc)); return token::CONST; }
 "volatile"		{ current_symbol.move(C1::BisonParser::make_VOLATILE(VOLATILE,loc)); return token::VOLATILE; }
-
+{sci_float}		{
+					auto val = strtof(yytext,NULL);
+					Expr* node = new AST::FloatLiteral(pContext->type_context,yytext,val);
+					current_symbol.move(C1::BisonParser::make_FLOAT_LITERAL(node,loc)); return token::INT_LITERAL; 
+				}
 {octal} 		{ 
 					auto val = strtol(yytext,NULL,8);
-					const AST::Expr* node = new AST::IntegerLiteral(val,8);
+					Expr* node = new AST::IntegerLiteral(pContext->type_context,yytext,val,8);
 					current_symbol.move(C1::BisonParser::make_INT_LITERAL(node,loc)); return token::INT_LITERAL; 
 				}
 {digit}    		{ 
 					auto val = strtol(yytext,NULL,10);
-					const AST::Expr* node = new AST::IntegerLiteral(val,10);
+					Expr* node = new AST::IntegerLiteral(pContext->type_context,yytext,val,10);
 					current_symbol.move(C1::BisonParser::make_INT_LITERAL(node,loc)); return token::INT_LITERAL; 
 				}
 {hex}		   	{ 
 					auto val = strtol(yytext,NULL,16);
-					const AST::Expr* node = new AST::IntegerLiteral(val,16);
+					Expr* node = new AST::IntegerLiteral(pContext->type_context,yytext,val,16);
 					current_symbol.move(C1::BisonParser::make_INT_LITERAL(node,loc)); return token::INT_LITERAL; 
 				}
+
 {ident}	 		{ 
 					std::string val(yytext);
 					auto decl = pContext->current_context()->lookup(val);
 					if (decl){
-						if (dynamic_cast<const TypeDeclaration*>(decl)!=nullptr)
+						if (dynamic_cast<const TypeDeclaration*>(decl)!=nullptr) {
+							current_symbol.move(C1::BisonParser::make_TypeIdentifier(yytext,loc));
 							return token::TypeIdentifier;
-						else
+						} else {
+							current_symbol.move(C1::BisonParser::make_ObjectIdentifier(yytext,loc));
 							return token::ObjectIdentifier;
+						}
 					} else
-					current_symbol.move(C1::BisonParser::make_NewIdentifier(yytext,loc)); return token::NewIdentifier; 
+					current_symbol.move(C1::BisonParser::make_NewIdentifier(yytext,loc));
+					return token::NewIdentifier; 
 				}
 "="		{ current_symbol.move(C1::BisonParser::make_ASSIGN(OP_ASSIGN,loc)); return token::ASSIGN;  }
 "<"		{ current_symbol.move(C1::BisonParser::make_LSS(OP_LSS,loc)); return token::LSS;  }
