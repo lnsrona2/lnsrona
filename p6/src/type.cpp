@@ -53,6 +53,13 @@ C1::AST::InitializerListType::~InitializerListType()
 
 }
 
+bool C1::AST::InitializerListType::IsArrayType() const
+{
+	auto elem_type = m_ElementTypes.front();
+	return std::all_of(++m_ElementTypes.begin(), m_ElementTypes.end(), [elem_type](const QualType& elyp)
+	{ return elem_type == elyp; });
+}
+
 C1::AST::DereferencableType::DereferencableType()
 {
 
@@ -83,6 +90,13 @@ C1::AST::QualType C1::AST::DereferencableType::Base()
 C1::AST::DereferencableType::~DereferencableType()
 {
 
+}
+
+PointerType* C1::AST::DereferencableType::GetPointerType()
+{
+	if (IsPointerType())
+		return static_cast<PointerType*>(this);
+	else return MakePointer(this->Base());
 }
 
 C1::AST::Type::Type()
@@ -159,12 +173,29 @@ bool C1::AST::Type::IsArrayType() const
 
 bool C1::AST::Type::IsPointerType() const
 {
+	//int a[5];
+	//int *p = a + 3;
 	return m_Kind == Pointer;
 }
 
 C1::AST::Type::~Type()
 {
 
+}
+
+bool C1::AST::Type::IsErrorType() const
+{
+	return m_Kind == Error;
+}
+
+bool C1::AST::Type::IsAddressType() const
+{
+	return m_Kind == Pointer || m_Kind == Array;
+}
+
+bool C1::AST::Type::IsFloatType() const
+{
+	return m_Kind == Float;
 }
 
 C1::AST::RecordType::RecordType(TypeKindEnum kind, const std::string &name, DeclContext* define /*= nullptr*/)
@@ -424,6 +455,8 @@ C1::AST::TypeContext::TypeContext()
 	m_Float->SetAffiliatedContext(this);
 	m_String.reset(NewPointerType(MakeConst(Char())));
 	m_String->SetAffiliatedContext(this);
+	m_Error = make_unique<ErrorType>();
+	m_Error->SetAffiliatedContext(this);
 }
 
 AliasType* C1::AST::TypeContext::NewAliasType(QualType base, const std::string& alias)
@@ -534,9 +567,9 @@ bool C1::AST::AliasType::Match(const Type* type) const
 }
 
 C1::AST::AliasType::AliasType(QualType aliasd_type, const std::string& name)
-: m_Base(aliasd_type), m_Name(name)
+: Type(), m_Base(aliasd_type), m_Name(name)
 {
-
+	
 }
 
 C1::AST::AliasType::~AliasType()
@@ -587,5 +620,108 @@ namespace C1
 
 			return lhs->Match(rhs.get());
 		}
+
+		const std::string& QualType::QulifierMaskToString(unsigned int qulifier_mask)
+		{
+			static std::string qulifier_list_name [] = { "", "const ", "restrict ", "const restrict ", "volatile ", "const volatile ", "restrict volatile ", "const restrict volatile " };
+			if (qulifier_mask < 8)
+				return qulifier_list_name[qulifier_mask];
+			else
+				return qulifier_list_name[0];
+		}
+
+		void QualType::Dump(ostream& os)
+		{
+			os << QulifierMaskToString(m_qulifier_mask) << m_type->ToString();
+		}
+
+
+		bool ErrorType::Match(const Type* type) const
+		{
+			return false;
+		}
+
+		std::string ErrorType::ToString() const
+		{
+			return "error-type";
+		}
+
+		ErrorType::ErrorType()
+			: BasicType(class_kind,0,0)
+		{
+
+		}
+
+		QualType get_most_generic_arithmetic_type(QualType lhs, QualType rhs)
+		{
+			if (!lhs->IsArithmeticType() || !rhs->IsArithmeticType())
+				return nullptr;
+			if (lhs->IsFloatType() && rhs->IsFloatType())
+				return get_most_generic_float_type(lhs, rhs);
+			if (lhs->IsIntegerType() && rhs->IsIntegerType())
+				return get_most_generic_integer_type(lhs, rhs);
+			int qualifiers = lhs.Qualifiers() | rhs.Qualifiers();
+			if (lhs->IsFloatType())
+			{
+				lhs.AddQualifiers(rhs.Qualifiers());
+				return lhs;
+			}
+			else
+			{
+				rhs.AddQualifiers(lhs.Qualifiers());
+				return rhs;
+			}
+		}
+
+		QualType get_most_generic_float_type(QualType lhs, QualType rhs)
+		{
+			if (lhs->Size() >= rhs->Size())
+			{
+				lhs.AddQualifiers(rhs.Qualifiers());
+				return lhs;
+			}
+			else
+			{
+				rhs.AddQualifiers(lhs.Qualifiers());
+				return rhs;
+			}
+		}
+
+		QualType get_most_generic_integer_type(QualType lhs, QualType rhs)
+		{
+			if (lhs->Size() >= rhs->Size())
+			{
+				lhs.AddQualifiers(rhs.Qualifiers());
+				return lhs;
+			}
+			else
+			{
+				rhs.AddQualifiers(lhs.Qualifiers());
+				return rhs;
+			}
+		}
+
+		bool is_type_assignable(QualType lhs, QualType rhs)
+		{
+			if (lhs.IsConst()) return false;
+			rhs.RemoveConst();
+			if (lhs->IsInitializerListType())
+				return false; // Initializer list is not assignable
+			if (lhs == rhs) return true;
+			if (lhs->IsArrayType())
+			{
+				auto l_element = lhs.As<ArrayType>()->Base();
+				if (!rhs->IsInitializerListType()) return false;
+				auto list = rhs.As<InitializerListType>();
+				if (!list->IsArrayType())
+					return false;
+				if (list->ElementTypes().size() > lhs.As<ArrayType>()->Length())
+					return false;
+				auto r_element = list->ElementTypes().front();
+				return is_type_assignable(l_element, r_element);
+			}
+			return false;
+		}
+
 	}
 }

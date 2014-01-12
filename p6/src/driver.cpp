@@ -16,6 +16,7 @@ int main(int argc, char *argv [])
 	//ConsoleDriver driver(&source, &cout);
 	C1::Parser parser(source, sourceFileName);
 	auto ast = parser.parse();
+	cout << endl << "Dump source file from AST:" << endl;
 	ast->Dump(cout);
-	system("PAUSE");
+	//system("PAUSE");
 }

@@ -68,10 +68,12 @@ Stmt* C1::AST::FunctionDeclaration::LatestDefinition()
 const Stmt* C1::AST::FunctionDeclaration::LatestDefinition() const
 {
 	auto func = this;
-	while (!func->Definition())
+	while (func && !func->Definition())
 	{
 		func = func->prev();
 	}
+	if (!func) 
+		return nullptr;
 	return func->Definition();
 }
 
@@ -156,7 +158,7 @@ bool C1::AST::Declaration::CheckCompatible(const Declaration* lhs, const Declara
 		return false;
 
 	// Only Struct and function declaration is redeclarable
-	if (lhs->Kind() != DECL_FUNCTION || lhs->Kind() != DECL_STRUCT)
+	if (lhs->Kind() != DECL_FUNCTION && lhs->Kind() != DECL_STRUCT)
 		return false;
 	if (lhs->Kind() == DECL_STRUCT)
 	{
@@ -249,4 +251,27 @@ C1::AST::VariableDeclaration::VariableDeclaration(StorageClassSpecifierEnum stor
 C1::AST::VariableDeclaration::VariableDeclaration()
 {
 	SetKind(DECL_VARIABLE);
+}
+
+C1::AST::VariableDeclaration::VariableDeclaration(QualType decl_type, const std::string& name)
+: ValueDeclaration(SCS_NONE, decl_type, name)
+{
+	SetKind(DECL_VARIABLE);
+}
+
+bool C1::AST::VariableDeclaration::ValidateInitialization()
+{
+	if (!InitializeExpr())
+		return true;
+	auto varType = DeclType();
+	auto initializerType = InitializeExpr()->ReturnType();
+	varType.RemoveConst();
+	if (!is_type_assignable(varType, initializerType))
+	{
+		error(SourceNode(), "Can not convert initializer type from <r-type> to <l-type>");
+		return false;
+	}
+	else
+		return true;
+
 }

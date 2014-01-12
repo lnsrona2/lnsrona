@@ -34,7 +34,7 @@ namespace C1
 		//};
 
 		class TranslationUnit;
-		// Storage nesseary "global" context value for building AST
+		// Storage harnesser "global" context value for building AST
 		// Represent a literal entity in the code document's AST
 		// example 
 		// TypeSpecifier is a Node , but not the true under hood Type here.
@@ -121,6 +121,8 @@ namespace C1
 
 			~CallExpr();
 
+			static CallExpr* MakeCallExpr(Expr*, std::list<Expr*>*);
+
 			CallExpr(Expr* , std::list<Expr*>*);
 
 			void Dump(std::ostream&) const;
@@ -143,7 +145,8 @@ namespace C1
 		class DeclRefExpr : public Expr
 		{
 		public:
-			DeclRefExpr(DeclContext* lookup_context,const std::string &name);
+			static DeclRefExpr* MakeDeclRefExpr(DeclContext* lookup_context,TypeContext* type_context, const std::string &name);
+
 			const ValueDeclaration* RefDecl() const { return m_RefDecl; }
 
 			const std::string& Identifier() const { return m_Name; }
@@ -156,7 +159,8 @@ namespace C1
 
 			void Dump(std::ostream&) const;
 		protected:
-			void ResoloveReference();
+			DeclRefExpr(DeclContext* lookup_context, TypeContext* type_context, const std::string &name);
+			ValueDeclaration* ResoloveReference();
 
 			virtual QualType ReturnType() const;
 
@@ -169,7 +173,7 @@ namespace C1
 			std::string m_Name;
 
 			DeclContext*	  m_RefContext; //The declaration context which the where this ref should lookup
-
+			TypeContext*	  m_TypeContext;
 			// DeclRefExpr don't owning its reference declaration
 			// It's a cache
 			ValueDeclaration* m_RefDecl;
@@ -194,10 +198,12 @@ namespace C1
 			std::unique_ptr<Expr> m_Base;
 		};
 
+		// ++ -- + - ! ~
 		class UnaryExpr : public Expr
 		{
 		public:
-			UnaryExpr(OperatorsEnum op, Expr* sub_expr);
+			static UnaryExpr* MakeUnaryExpr(OperatorsEnum op, Expr* sub_expr);
+
 			const Expr* SubExpr() const { return m_SubExpr.get(); }
 			Expr* SubExpr() { return m_SubExpr.get(); }
 			OperatorsEnum Operator() const { return m_Operator; }
@@ -212,6 +218,7 @@ namespace C1
 			virtual bool Evaluatable() const;
 
 		protected:
+			UnaryExpr(OperatorsEnum op, Expr* sub_expr);
 			OperatorsEnum m_Operator;
 			std::unique_ptr<Expr> m_SubExpr;
 		};
@@ -219,6 +226,8 @@ namespace C1
 		class PosfixExpr : public UnaryExpr
 		{
 		public:
+			static PosfixExpr* MakePosfixExpr(OperatorsEnum op, Expr* Base);
+
 			PosfixExpr(OperatorsEnum op, Expr* Base);
 			void Dump(std::ostream&) const;
 		protected:
@@ -264,8 +273,10 @@ namespace C1
 			std::array<std::unique_ptr<Expr>, 2> m_SubExprs;
 		};
 
-		class DeReferenceExpr : public UnaryExpr
+		class DereferenceExpr : public UnaryExpr
 		{
+		public:
+			static DereferenceExpr* MakeDereferenceExpr(Expr* base);
 			// Always LValue
 			virtual ExprValueType ValueType() const;
 			// Always False
@@ -273,28 +284,35 @@ namespace C1
 			// de-ref of the sub-expr
 			virtual QualType ReturnType() const;
 			// Side effect : Always False , if there is no operator overload
+		protected:
+			DereferenceExpr(Expr* base);
 		};
 
 		class AddressOfExpr : public UnaryExpr
 		{
+		public:
+			static AddressOfExpr* MakeAddressOfExpr(Expr* base);
 			// Always RValue
 			virtual ExprValueType ValueType() const;
 			// Always False
 			virtual bool Evaluatable() const;
 			// const (pointer of the sub-expression's type)
 			virtual QualType ReturnType() const;
+
+		protected:
+			AddressOfExpr(Expr* base);
 		};
 
 		class AssignExpr : public BinaryExpr
 		{
 		public:
-			AssignExpr(Expr* lhs, Expr* rhs);
-			AssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+			static AssignExpr* MakeAssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 
 			bool IsComposed() const { return Operator() != OP_ASSIGN; }
 			// return OP_ASGN if is OP_ASGN itself
 			const OperatorsEnum PrefixedOperator() const;
 
+			static OperatorsEnum GetComposedOperator(OperatorsEnum op);
 			// The lhs
 			virtual QualType ReturnType() const;
 
@@ -309,12 +327,18 @@ namespace C1
 
 			virtual ComposedValue Evaluate() const;
 
+			virtual void Dump(std::ostream& ostr) const;
+
+		protected:
+			AssignExpr(Expr* lhs, Expr* rhs);
+			AssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 		};
 
 		class IndexExpr : public BinaryExpr
 		{
 		public:
 			IndexExpr(Expr* host_expr, Expr* index_expr);
+			static IndexExpr* MakeIndexExpr(Expr* host_expr, Expr* index_expr);
 			Expr* Host() { return LeftSubExpr(); }
 			Expr* Index() { return RightSubExpr(); }
 			const Expr* Host() const { return LeftSubExpr(); }
@@ -325,8 +349,6 @@ namespace C1
 			virtual QualType ReturnType() const;
 			// Always LValue
 			virtual ExprValueType ValueType() const;
-
-			virtual bool HasSideEffect() const;
 
 			virtual ComposedValue Evaluate() const;
 
@@ -339,14 +361,22 @@ namespace C1
 		class ArithmeticExpr : public BinaryExpr
 		{
 		public:
+			static ArithmeticExpr* MakeArithmeticExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+		protected:
 			ArithmeticExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+
+			virtual QualType ReturnType() const;
 
 		};
 
 		class LogicExpr : public BinaryExpr
 		{
 		public:
+			static LogicExpr* MakeLogicExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+		protected:
 			LogicExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+
+			virtual QualType ReturnType() const;
 
 		};
 
@@ -437,7 +467,7 @@ namespace C1
 		class MemberExpr : public Expr
 		{
 		public:
-			MemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op);
+			static MemberExpr* MakeMemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op);
 			const Expr* Host() const 
 			{ return m_HostExpr.get(); }
 			const FieldDeclaration* Member() const
@@ -456,6 +486,7 @@ namespace C1
 			virtual bool Evaluatable() const;
 
 		protected:
+			MemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op);
 			OperatorsEnum			m_Operator;
 			std::unique_ptr<Expr>	m_HostExpr;
 			std::string				m_MemberName;
@@ -469,6 +500,8 @@ namespace C1
 			const QualType TargetType() const { return m_TargetType; }
 			const FunctionDeclaration* ConversionFunction() const { return m_ConversionFunction; }
 			void SetConversionFunction(FunctionDeclaration* val) { m_ConversionFunction = val; }
+
+			static Expr* MakeImplictitCastExpr(QualType target_type, Expr* source_expr);
 		protected:
 			CastExpr(Expr* source_expr, QualType target_type, FunctionDeclaration* conversion_func = nullptr);
 
@@ -538,7 +571,7 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
-			// Not impleamented yet
+			// Not implemented yet
 			static std::string DecodeString(const std::string & encoded_str);
 			static std::string EncodeString(const std::string & raw_str);
 		protected:
@@ -797,10 +830,7 @@ namespace C1
 			StructDeclaration(const std::string& name, StructBody* definition);
 			StructDeclaration(const std::string& name);
 			StructDeclaration(StructBody* definition);
-			StructDeclaration()
-			{
-				SetKind(DECL_STRUCT);
-			}
+			StructDeclaration();
 
 			const std::string & Name() const { return m_Name; }
 			StructBody* Definition() { return m_Definition.get(); }
@@ -831,18 +861,11 @@ namespace C1
 		class TypedefNameSpecifier : public TypeSpecifier
 		{
 		public:
-			TypedefNameSpecifier(DeclContext* pContext, const std::string& name)
-				: m_Name(name)
-			{
-				TypeDeclaration* decl = dynamic_cast<TypeDeclaration*>(pContext->lookup(name));
-				if (decl)
-				{
-					SetRepresentType(decl->DeclType());
-				}
-			}
+			TypedefNameSpecifier(DeclContext* pContext, const std::string& name);
 			void Dump(std::ostream&) const;
 		protected:
 			std::string m_Name;
+			TypeDeclaration* m_RefDecl;
 		};
 
 		class QualifiedTypeSpecifier : public Node
@@ -934,6 +957,16 @@ namespace C1
 			void Dump(std::ostream&) const;
 		};
 
+		class EmptyDeclarator : public Declarator
+		{
+		public:
+			EmptyDeclarator();
+			virtual QualType DecorateType(QualType base_type);
+
+			virtual void Dump(std::ostream& ostr) const;
+
+		};
+
 		class IdentifierDeclarator : public Declarator
 		{
 		public:
@@ -961,11 +994,13 @@ namespace C1
 			int m_Qualifiers;
 		};
 
+		// I hate "int array[] = {a,b};"
 		class ArrayDeclarator : public Declarator
 		{
 		public:
 			ArrayDeclarator(Declarator* base,Expr* size);
 			const Expr* SizeExpr() const { return m_SizeExpr.get(); }
+			bool IsCompelete() const { return m_SizeExpr != nullptr; }
 			void Dump(std::ostream&) const;
 
 			virtual QualType DecorateType(QualType base_type);
@@ -1009,10 +1044,9 @@ namespace C1
 			Initializer* InitializeExpr() { return m_Initializer.get(); }
 			void SetInitializeExpr(Initializer* val) { m_Initializer.reset(val); }
 			void Dump(std::ostream&) const;
-			QualType DecorateType(QualType base_type)
-			{
-				return Base()->DecorateType(base_type);
-			}
+
+			// Also handle the case "int array[] = {a,b}"
+			QualType DecorateType(QualType base_type);
 		protected:
 			std::unique_ptr<Initializer> m_Initializer;
 		};

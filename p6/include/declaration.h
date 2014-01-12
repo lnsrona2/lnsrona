@@ -193,8 +193,10 @@ namespace C1
 		{
 		public:
 			VariableDeclaration(StorageClassSpecifierEnum storage_class_specifier, QualType qual_type, Declarator* p_declarator);
+			// Use for declare a int declaration.
+			VariableDeclaration(QualType decl_type, const std::string& name);
 			const Initializer* InitializeExpr() const { return m_InitializerExpr; }
-
+			bool ValidateInitialization();
 		protected:
 			VariableDeclaration();
 

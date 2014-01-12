@@ -1,7 +1,8 @@
 /* opxx(a,b) OP##a is the enumerate no of operator b */
 #ifdef opxx
 	opxx(RET,"return","return %s")
-	opxx(NEG,"(-)","-%s")
+	opxx(NEG,"-","-%s")
+	opxx(POS, "+", "+%s")
 	opxx(ADD,"+","%s + %s")
 	opxx(SUB, "-","%s - %s")
 	opxx(MUL, "*", "%s * %s")
@@ -20,8 +21,8 @@
 	opxx(LEQ, "<=", "%s <= %s")
 	opxx(ANDAND, "&&", "%s && %s")
 	opxx(OROR, "||", "%s || %s")
-	opxx(NOTNOT, "!", "!%s")
-	opxx(NOT, "~", "~%s")
+	opxx(NOT, "!", "!%s")
+	opxx(REVERSE, "~", "~%s")
 	opxx(INDEX, "[]", "%s[%s]")
 	opxx(CALL, "()", "%s(%s)")
 	opxx(DOT, ".", "%s.%s")

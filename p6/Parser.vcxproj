@@ -38,7 +38,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <NMakeBuildCommandLine>nmake -f Makefile.Windows.mak all</NMakeBuildCommandLine>
-    <NMakeOutput>src\c0ast.tab.c;src\c0ast.lex.c</NMakeOutput>
+    <NMakeOutput>src\c1.tab.cpp;src\c1.lex.cpp</NMakeOutput>
     <NMakeCleanCommandLine>nmake -f Makefile.Windows.mak clean</NMakeCleanCommandLine>
     <NMakeReBuildCommandLine>nmake -f Makefile.Windows.mak all</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WINDOWS;WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>

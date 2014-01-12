@@ -25,6 +25,7 @@ namespace C1
 			enum TypeKindEnum
 			{
 				Unknown,
+				Error,
 				Basic,
 				Void,
 				Boolean,
@@ -48,14 +49,19 @@ namespace C1
 			TypeKindEnum Kind() const
 			{ return m_Kind; }
 			virtual bool IsPointerType() const;
+			// is a pointer or array 
+			virtual bool IsAddressType() const;
 			virtual bool IsArrayType() const;
+			// is a void / integer / float / error_type
 			virtual bool IsBasicType() const;
 			virtual bool IsIntegerType() const;
+			virtual bool IsFloatType() const;
 			virtual bool IsFunctionType() const;
 			virtual bool IsStructType() const;
 			virtual bool IsAliasType() const;
 			virtual bool IsInitializerListType() const;
 			virtual bool IsArithmeticType() const;
+			virtual bool IsErrorType() const;
 			virtual std::string ToString() const;
 			virtual size_t Size() const = 0;
 			virtual size_t Alignment() const = 0;
@@ -133,22 +139,22 @@ namespace C1
 
 			int AddConst()
 			{
-				m_qulifier_mask |= TypeQualifierEnum::CONST;
+				return m_qulifier_mask |= TypeQualifierEnum::CONST;
 			}
 
 			int RemoveConst()
 			{
-				m_qulifier_mask &= ~TypeQualifierEnum::CONST;
+				return m_qulifier_mask &= ~TypeQualifierEnum::CONST;
 			}
 
-			void AddQualifiers(int qualfiers_mask)
+			int AddQualifiers(int qualfiers_mask)
 			{
-				m_qulifier_mask |= qualfiers_mask;
+				return m_qulifier_mask |= qualfiers_mask;
 			}
 
-			void RemoveQualifiers(int qualfiers_mask)
+			int RemoveQualifiers(int qualfiers_mask)
 			{
-				m_qulifier_mask &= ~qualfiers_mask;
+				return m_qulifier_mask &= ~qualfiers_mask;
 			}
 
 			inline const Type &operator*() const{
@@ -180,20 +186,19 @@ namespace C1
 			}
 
 		public:
-
-			static const std::string& QulifierMaskToString(unsigned int qulifier_mask)
-			{
-				static std::string qulifier_list_name [] = { "", "const ", "restrict ", "const restrict ", "volatile ", "const volatile ", "restrict volatile ", "const restrict volatile " };
-				if (qulifier_mask < 8)
-					return qulifier_list_name[qulifier_mask];
-				else
-					return qulifier_list_name[0];
-			}
+			void Dump(std::ostream& os);
+			static const std::string& QulifierMaskToString(unsigned int qulifier_mask);
 
 		private:
 			Type* m_type;
 			int m_qulifier_mask;
 		};
+
+		inline std::ostream& operator <<(std::ostream& os,QualType qual_type)
+		{
+			qual_type.Dump(os);
+			return os;
+		}
 
 		//bool type_match(const Type &lhs, const Type &rhs);
 		bool type_match(QualType lhs, QualType rhs);
@@ -201,6 +206,26 @@ namespace C1
 		{
 			return type_match(lhs, rhs);
 		}
+		inline bool operator!=(const QualType &lhs, const QualType &rhs)
+		{
+			return !type_match(lhs, rhs);
+		}
+		bool is_type_assignable(QualType lhs, QualType rhs);
+
+		inline bool operator<=(const QualType &lhs, const QualType &rhs)
+		{
+			return is_type_assignable(lhs, rhs);
+		}
+
+		inline bool operator>=(const QualType &lhs, const QualType &rhs)
+		{
+			return is_type_assignable(rhs, lhs);
+		}
+
+		// return nullptr if one of the operand is not arithmetic type
+		QualType get_most_generic_arithmetic_type(QualType lhs, QualType rhs);
+		QualType get_most_generic_float_type(QualType lhs, QualType rhs);
+		QualType get_most_generic_integer_type(QualType lhs, QualType rhs);
 
 		inline
 		QualType MakeConst(Type* type)
@@ -222,9 +247,14 @@ namespace C1
 
 			virtual bool Match(const Type* type) const;
 
+			// Overrided for checking if all the type inside is uniform
+			virtual bool IsArrayType() const;
+
 		protected:
 			std::list<QualType> m_ElementTypes;
 		};
+		
+		class PointerType;
 
 		class DereferencableType : public Type
 		{
@@ -232,6 +262,8 @@ namespace C1
 			QualType Base();
 			const QualType Base() const;
 			~DereferencableType();
+			// Return the pointer of this dereferencers type
+			PointerType*	GetPointerType();
 		protected:
 			DereferencableType(TypeKindEnum kind, QualType base);
 			DereferencableType(QualType base);
@@ -259,11 +291,16 @@ namespace C1
 		{
 		public:
 			static const TypeKindEnum class_kind = Array;
+			static const size_t ArrayLengthAuto = -1;
 			ArrayType(QualType base, size_t size);
 			~ArrayType();
 			// Return the number count of this array
 			int Length() const { return m_size; }
-
+			// Only should be called when deducing array size by initializer list
+			// Only works when length is set to : ArrayType::ArrayLengthAuto
+			void SetLength(size_t val) 
+			{ if (m_size== ArrayLengthAuto) m_size = val; }
+			
 			virtual size_t Size() const;
 
 			virtual size_t Alignment() const;
@@ -377,6 +414,17 @@ namespace C1
 			size_t m_Size;
 			size_t m_Alignment;
 		};
+		class ErrorType : public BasicType
+		{
+		public:
+			static const TypeKindEnum class_kind = Error;
+			ErrorType();
+
+			virtual std::string ToString() const;
+			// Error type is always non-matchable
+			virtual bool Match(const Type* type) const;
+
+		};
 		class VoidType : public BasicType
 		{
 		public:
@@ -427,6 +475,7 @@ namespace C1
 		class AliasType : public Type
 		{
 		public:
+			static const TypeKindEnum class_kind = Typedef;
 			~AliasType();
 			AliasType(QualType aliasd_type, const std::string& name);
 			QualType Base() { return m_Base; }
@@ -504,6 +553,7 @@ namespace C1
 			const FloatType*	Double() const { return m_Double.get(); }
 			// The alias for char*
 			const PointerType*	String() const { return m_String.get(); }
+			const ErrorType*	Error() const { return m_Error.get(); }
 
 			IntegerType*	Char() { return m_Char.get(); }
 			IntegerType*	Short() { return m_Short.get(); }
@@ -517,6 +567,7 @@ namespace C1
 			FloatType*		Float() { return m_Float.get(); }
 			FloatType*		Double() { return m_Double.get(); }
 			PointerType*	String() { return m_String.get(); }
+			ErrorType*		Error() { return m_Error.get(); }
 
 			size_t	AddressWidth() const { return m_AddressWidth; }
 			size_t	AddressAlignment() const { return m_AddressAllignment; }
@@ -538,6 +589,7 @@ namespace C1
 			std::unique_ptr<FloatType>		m_Float;
 			std::unique_ptr<FloatType>		m_Double;
 			std::unique_ptr<PointerType>	m_String;
+			std::unique_ptr<ErrorType>		m_Error;
 
 			size_t							m_AddressWidth;
 			size_t							m_AddressAllignment;

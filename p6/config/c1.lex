@@ -29,6 +29,7 @@ string_literal		"\""([^"'"\n])*"\""
 bad_char_literal	"\""([^"'"\n])*\n
 bad_string_literal	"'"([^"'"\n])*\n
 
+
 %{
 #define YY_USER_ACTION loc.columns (yyleng);
 %}
@@ -133,7 +134,11 @@ typedef C1::BisonParser::token token;
 					Expr* node = new AST::IntegerLiteral(pContext->type_context,yytext,val,16);
 					current_symbol.move(C1::BisonParser::make_INT_LITERAL(node,loc)); return token::INT_LITERAL; 
 				}
-
+{string_literal} 	{
+					Expr* node = new AST::StringLiteral(pContext->type_context,yytext);
+					current_symbol.move(C1::BisonParser::make_STRING_LITERAL(node,loc));
+					return token::STRING_LITERAL; 
+				}
 {ident}	 		{ 
 					std::string val(yytext);
 					auto decl = pContext->current_context()->lookup(val);

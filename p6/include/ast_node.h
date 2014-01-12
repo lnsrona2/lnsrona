@@ -53,5 +53,7 @@ namespace C1
 			return os;
 		}
 
+		void error(const C1::AST::Node *node, const std::string &msg);
+		void error(const C1::location &loc, const std::string &msg);
 	}
 }

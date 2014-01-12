@@ -210,6 +210,7 @@ TranslationUnit
 	{
 		$$ = $1;
 		$$ -> Children().push_back($2);
+		$2->SetParent($$);
 		$$->SetLocation(@$);
 	}
 	| %empty
@@ -279,8 +280,9 @@ ObjectDeclaration
 				decl = new FunctionDeclaration($1,$2,dynamic_cast<FunctionalDeclarator*>(declarator));
 				decl -> SetSourceNode(compound_decl);
 				context.CurrentTranslationUnit->add(decl);
+				// We don't need this, because we only push the parameters decl-context into context-stack if we entering a function body
 				// Popout the parameters Decl-Context
-				context.pop_context();
+				// context.pop_context();
 			} else if (dynamic_cast<IdentifierDeclarator*>(declarator) != nullptr && dynamic_cast<FunctionType*>($2->RepresentType().get()) != nullptr)
 			{
 				error(@$,"warnning : WTF! declaring a function type object is not allow.");
@@ -288,11 +290,20 @@ ObjectDeclaration
 			{
 				decl = new VariableDeclaration($1,$2->RepresentType(),declarator);
 				decl -> SetSourceNode(compound_decl);
+				static_cast<VariableDeclaration*>(decl)->ValidateInitialization();
 				context.current_context()->add(decl);
 			}
 			// add the sub-declaration into the easy access list.
 			compound_decl -> Declarations().push_back(decl);
 		}
+	}
+	| StorageClassSpecifier QualifiedTypeSpecifier
+	{
+		//$3 will be moved.
+		auto empty_list = new std::list<Declarator*>();
+		auto compound_decl = new VarDeclStmt($1,$2,empty_list);
+		$$ = compound_decl;
+		$$ -> SetLocation(@$);
 	}
 	;
 
@@ -378,7 +389,7 @@ DirectDeclarator
 	;
 
 InitDeclaratorList
-	: InitDeclaratorList COMMA InitDeclarator
+	: InitDeclaratorList "," InitDeclarator
 	{
 		$$ = $1;
 		$$->push_back($3);
@@ -492,6 +503,7 @@ DirectAbstractDeclarator
 	{
 		$$ = new FunctionalDeclarator($1,$3);
 		$$->SetLocation(@$);
+		$3->SetLocation(@2 + @4);
 	}
 	| DirectAbstractDeclarator LPAREN RPAREN
 	{
@@ -499,6 +511,7 @@ DirectAbstractDeclarator
 		auto param_list = new ParameterList();
 		$$ = new FunctionalDeclarator($1,param_list);
 		$$->SetLocation(@$);
+		param_list->SetLocation(@2 + @3);
 	}
 	;
 
@@ -528,7 +541,7 @@ ParameterDeclaration
 	}
 	| QualifiedTypeSpecifier
 	{
-		$$ = new ParameterDeclaration($1,nullptr);
+		$$ = new ParameterDeclaration($1,new EmptyDeclarator());
 	}
 	;
 
@@ -574,6 +587,10 @@ TypeSpecifier
 	| FLOAT
 	{
 		$$ = new PrimaryTypeSpecifier(context.type_context->Float());
+	}
+	| CHAR
+	{
+		$$ = new PrimaryTypeSpecifier(context.type_context->Char());
 	}
 	| RecordSpecifier
 	{
@@ -769,6 +786,7 @@ FieldDeclarationList
 	{
 		$$ = $1;
 		$$->Children().push_back($2);
+		$2->SetParent($$);
 	}
 	;
 
@@ -784,6 +802,13 @@ FieldDeclaration
 			context.current_context()->add(decl);
 			// Handel redefination
 		}
+		$$ = compound_decl;
+	}
+	| QualifiedTypeSpecifier SEMICOLON
+	{
+		auto empty_list = new std::list<Declarator*>;
+		auto compound_decl = new FieldDeclStmt($1,empty_list);
+		compound_decl -> SetLocation(@$);
 		$$ = compound_decl;
 	}
 	;
@@ -845,7 +870,7 @@ PrimaryExpr
 	}
 	| Identifier
 	{
-		$$ = new DeclRefExpr(context.current_context(),$1);
+		$$ = DeclRefExpr::MakeDeclRefExpr(context.current_context(),context.type_context,$1);
 		$$->SetLocation(@$);
 	}
 	| LPAREN Expr RPAREN
@@ -862,38 +887,38 @@ PosfixExpr
 	}
 	| PosfixExpr ADDADD
 	{
-		$$ = new PosfixExpr(OP_POSFIX_ADDADD,$1);
+		$$ = PosfixExpr::MakePosfixExpr(OP_POSFIX_ADDADD,$1);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr SUBSUB
 	{
-		$$ = new PosfixExpr(OP_POSFIX_SUBSUB,$1);
+		$$ = PosfixExpr::MakePosfixExpr(OP_POSFIX_SUBSUB,$1);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr LBRACKET Expr RBRACKET
 	{
-		$$ = new IndexExpr($1,$3);
+		$$ = IndexExpr::MakeIndexExpr($1,$3);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr LPAREN ArgumentList RPAREN
 	{
-		$$ = new CallExpr($1,$3);
+		$$ = CallExpr::MakeCallExpr($1,$3);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr LPAREN RPAREN
 	{
 		auto empty_list = new std::list<AST::Expr*>();
-		$$ = new CallExpr($1,empty_list);
+		$$ = CallExpr::MakeCallExpr($1,empty_list);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr DOT Identifier
 	{
-		$$ = new MemberExpr($1,$3,OP_DOT);
+		$$ = MemberExpr::MakeMemberExpr($1,$3,OP_DOT);
 		$$->SetLocation(@$);
 	}
 	| PosfixExpr ARROW Identifier
 	{
-		$$ = new MemberExpr($1,$3,OP_ARROW);
+		$$ = MemberExpr::MakeMemberExpr($1,$3,OP_ARROW);
 		$$->SetLocation(@$);
 	}
 	;
@@ -903,19 +928,24 @@ UnaryExpr
 	{
 		$$ = $1;
 	}
+	| MUL CastExpr
+	{
+		$$ = DereferenceExpr::MakeDereferenceExpr($2);
+		$$->SetLocation(@$);
+	}
 	| ADDADD UnaryExpr
 	{
-		$$ = new UnaryExpr($1,$2);
+		$$ = UnaryExpr::MakeUnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| SUBSUB UnaryExpr
 	{
-		$$ = new UnaryExpr($1,$2);
+		$$ = UnaryExpr::MakeUnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| UnaryOperator CastExpr
 	{
-		$$ = new UnaryExpr($1,$2);
+		$$ = UnaryExpr::MakeUnaryExpr($1,$2);
 		$$->SetLocation(@$);
 	}
 	| SIZEOF UnaryExpr
@@ -932,10 +962,6 @@ UnaryExpr
 
 UnaryOperator
 	: AND
-	{
-		$$ = $1;
-	}
-	| MUL
 	{
 		$$ = $1;
 	}
@@ -981,37 +1007,37 @@ ArithmeticExpr
 	}
 	| ArithmeticExpr ADD CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr SUB CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr MUL CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr DIV CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr MOD CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr LSH CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| ArithmeticExpr RSH CastExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1023,22 +1049,22 @@ RelationExpr
 	}
 	| RelationExpr LEQ ArithmeticExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| RelationExpr GEQ ArithmeticExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| RelationExpr GTR ArithmeticExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| RelationExpr LSS ArithmeticExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1050,12 +1076,12 @@ EqualityExpr
 	}
 	| EqualityExpr "==" RelationExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| EqualityExpr "!=" RelationExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1068,17 +1094,17 @@ BitwiseExpr
 	}
 	| BitwiseExpr AND EqualityExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| BitwiseExpr OR  EqualityExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	| BitwiseExpr XOR EqualityExpr
 	{
-		$$ = new ArithmeticExpr($2,$1,$3);
+		$$ = ArithmeticExpr::MakeArithmeticExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1090,7 +1116,7 @@ LogicAndExpr
 	}
 	| LogicAndExpr ANDAND BitwiseExpr
 	{
-		$$ = new LogicExpr($2,$1,$3);
+		$$ = LogicExpr::MakeLogicExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1102,7 +1128,7 @@ LogicOrExpr
 	}
 	| LogicOrExpr OROR LogicAndExpr
 	{
-		$$ = new LogicExpr($2,$1,$3);
+		$$ = LogicExpr::MakeLogicExpr($2,$1,$3);
 		$$->SetLocation(@$);
 	}
 	;
@@ -1121,8 +1147,12 @@ AssignExpr
 	| UnaryExpr AssignOperator AssignExpr
 	{
 		//Unary op_enum here is because binary op_enum don't have L-value
-		$$ = new AssignExpr($1,$3);
+		$$ = AssignExpr::MakeAssignExpr($2,$1,$3);
 		$$ -> SetLocation(@$);
+		if ($$ -> ValueType() != LValue)
+		{
+			error (@1,"Semantic error : Assigned expression must have a L-Value.");
+		}
 	}
 	;
 
@@ -1169,6 +1199,10 @@ ConstantExpr
 		// Constant expression don't support assign expression
 		// nessary for initializers and compile time constant
 		$$ = $1;
+		if (!$$ -> Evaluatable())
+		{
+			error (@$,"Semantic error : can not evalaute the expression at compile time.");
+		}
 	}
 
 ArgumentList
@@ -1243,6 +1277,7 @@ StmtList
 	{
 		$$ = $1;
 		$$->Children().push_back($2);
+		$2->SetParent($$);
 	}
 	| %empty
 	{
@@ -1388,8 +1423,8 @@ Label
 
 // We have to implement the error function
 void C1::BisonParser::error(const C1::BisonParser::location_type &loc, const std::string &msg) {
-	std::cerr << "Error @" << loc.begin.line << "(" << loc.begin.column << ")" ;
-	std::cerr << " - @"  << loc.end.line << "(" << loc.end.column << ")" ;
+	std::cerr << "Error " << loc.begin.line << "." << loc.begin.column ;
+	std::cerr << " - "  << loc.end.line << "." << loc.end.column << " " ;
 	std::cerr << msg << std::endl;
 }
 
