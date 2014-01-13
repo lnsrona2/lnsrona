@@ -17,6 +17,19 @@ int main(int argc, char *argv [])
 	C1::Parser parser(source, sourceFileName);
 	auto ast = parser.parse();
 	cout << endl << "Dump source file from AST:" << endl;
-	ast->Dump(cout);
+
+	cout << *ast;
+
+	C1::PCode::CodeDome codes;
+	codes << *ast;
+
+	using C1::PCode::operator<<;
+	cout << codes;
+	
+	system("PAUSE");
+
+	C1::PCode::Interpreter interpreter;
+	interpreter.SetDebugLevel(2);
+	interpreter.Interpret(codes);
 	//system("PAUSE");
 }

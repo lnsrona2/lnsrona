@@ -62,6 +62,7 @@ namespace C1
 			virtual bool IsInitializerListType() const;
 			virtual bool IsArithmeticType() const;
 			virtual bool IsErrorType() const;
+			//virtual bool IsStringType() const;
 			virtual std::string ToString() const;
 			virtual size_t Size() const = 0;
 			virtual size_t Alignment() const = 0;
@@ -447,7 +448,7 @@ namespace C1
 		{
 		public:
 			static const TypeKindEnum class_kind = Integer;
-			IntegerType();
+			//IntegerType();
 			IntegerType(size_t size);
 
 			virtual std::string ToString() const;
@@ -466,7 +467,7 @@ namespace C1
 		{
 		public:
 			static const TypeKindEnum class_kind = Float;
-			FloatType();
+			FloatType(size_t size);
 
 			virtual std::string ToString() const;
 

@@ -173,16 +173,20 @@ namespace C1
 			StorageClassSpecifierEnum StorageClassSpecifier() const 
 				{ return m_storage_specifier; }
 
-// 			const Declarator* DeclDeclarator() const { return m_Declarator.get(); }
+			const size_t Offset() const { return m_Offset; }
+			void SetOffset(size_t offset) { m_Offset = offset; }
+
+			// 			const Declarator* DeclDeclarator() const { return m_Declarator.get(); }
 // 			Declarator* DeclDeclarator() { return m_Declarator.get(); }
 
 		protected:
 			ValueDeclaration();
-			~ValueDeclaration();
 			ValueDeclaration(StorageClassSpecifierEnum scs, QualType decl_type, const std::string& name);
 			ValueDeclaration(StorageClassSpecifierEnum scs, QualType base_type, Declarator* declarator);
+			~ValueDeclaration();
 
 			//std::unique_ptr<Declarator>	m_Declarator;
+			size_t m_Offset;
 			StorageClassSpecifierEnum	m_storage_specifier;
 			QualType					m_decltype;
 		};
@@ -196,10 +200,18 @@ namespace C1
 			// Use for declare a int declaration.
 			VariableDeclaration(QualType decl_type, const std::string& name);
 			const Initializer* InitializeExpr() const { return m_InitializerExpr; }
+			Initializer* InitializeExpr() { return m_InitializerExpr; }
 			bool ValidateInitialization();
+
+			bool IsGlobal() const;
+
+			//const size_t Address() const { return m_Address; }
+			//void SetAddress(size_t val) { m_Address = val; }
+
 		protected:
 			VariableDeclaration();
 
+			//size_t m_Address;
 			Initializer*	m_InitializerExpr;
 		};
 
@@ -213,16 +225,15 @@ namespace C1
 
 			const Type* ParentRecordType() const;
 			const int AccessModifier() const;
-			const size_t Offset() const;
-			const Expr* OffsetExpr() const;
 
+			const Expr* OffsetExpr() const;
+			
 		protected:
 			FieldDeclaration()
 			{
 				SetKind(DECL_FIELD);
 			}
 
-			size_t m_Offset;
 			Expr* m_OffsetExpr;
 		};
 
@@ -258,6 +269,8 @@ namespace C1
 
 			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			//Literal entities
 			std::unique_ptr<QualifiedTypeSpecifier>	m_type_specifier;
@@ -283,6 +296,8 @@ namespace C1
 			void SetDeclarator(Declarator* val) { m_Declarator.reset(val); }
 
 			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		protected:
 			std::unique_ptr<Declarator>				m_Declarator;

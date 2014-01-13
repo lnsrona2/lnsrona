@@ -144,6 +144,8 @@ namespace C1
 			std::unique_ptr<std::multimap<std::reference_wrapper<const std::string>, NamedDeclaration*>> m_pTableView;
 		};
 
+		inline size_t total_value_size(const DeclContext& context);
+
 		inline NamedDeclaration* DeclContext::lookup_local(const std::string& name)
 		{
 			auto decl = const_cast<const DeclContext*>(this)->lookup_local(name);

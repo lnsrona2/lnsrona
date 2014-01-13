@@ -353,11 +353,11 @@ std::string C1::AST::BooleanType::ToString() const
 	return "bool";
 }
 
-C1::AST::IntegerType::IntegerType()
-: BasicType(Integer, 4, 4)
-{
-
-}
+//C1::AST::IntegerType::IntegerType()
+//: BasicType(Integer, 1, 1)
+//{
+//
+//}
 
 C1::AST::IntegerType::IntegerType(size_t size)
 : BasicType(class_kind, size)
@@ -380,7 +380,7 @@ std::string C1::AST::CharacterType::ToString() const
 	return "char";
 }
 
-C1::AST::FloatType::FloatType() : BasicType(Float, 4, 4)
+C1::AST::FloatType::FloatType(size_t size) : BasicType(Float, size, 1)
 {
 
 }
@@ -439,19 +439,26 @@ StructType* C1::AST::TypeContext::NewStructType(const std::string& name)
 
 C1::AST::TypeContext::TypeContext()
 {
+	m_AddressWidth = 1;
+	m_AddressAllignment = 1;
+	m_WordSize = 1;
+	m_WordAlignment = 1;
+
 	m_Char = make_unique<IntegerType>(1);
 	m_Char->SetAffiliatedContext(this);
-	m_Short = make_unique<IntegerType>(2);
+	m_Short = make_unique<IntegerType>(1);
+	//m_Short = make_unique<IntegerType>(2);
 	m_Short->SetAffiliatedContext(this);
-	m_Int = make_unique<IntegerType>(4);
+	m_Int = make_unique<IntegerType>(1);
+	//m_Int = make_unique<IntegerType>(4);
 	m_Int->SetAffiliatedContext(this);
-	m_Long = make_unique<IntegerType>(4);
+	m_Long = make_unique<IntegerType>(1);
 	m_Long->SetAffiliatedContext(this);
 	m_Bool = make_unique<BooleanType>();
 	m_Bool->SetAffiliatedContext(this);
 	m_Void = make_unique<VoidType>();
 	m_Void->SetAffiliatedContext(this);
-	m_Float = make_unique<FloatType>();
+	m_Float = make_unique<FloatType>(1);
 	m_Float->SetAffiliatedContext(this);
 	m_String.reset(NewPointerType(MakeConst(Char())));
 	m_String->SetAffiliatedContext(this);

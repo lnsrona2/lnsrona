@@ -57,6 +57,8 @@
 	CASE "case"
 	DEFAULT "defaul"
 	TYPEDEF "typedef"
+	READ "read"
+	WRITE "write"
 	COMMA ","
 	SEMICOLON ";"
 	COLON ":"
@@ -163,7 +165,7 @@
 %type <AST::TypeSpecifier*> TypeSpecifier EnumSpecifier
 %type <AST::QualifiedTypeSpecifier*> QualifiedTypeSpecifier
 %type <AST::TypeExpr*> TypeExpr
-%type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt JumpStmt DeclStmt Label
+%type <AST::Stmt*> Stmt ExprStmt IterationStmt SelectionStmt JumpStmt DeclStmt Label ReadStmt WriteStmt
 %type <AST::CompoundStmt*> StmtList CompoundStmt
 
 %type <AST::TranslationUnit*> TranslationUnit 
@@ -288,13 +290,13 @@ ObjectDeclaration
 				error(@$,"warnning : WTF! declaring a function type object is not allow.");
 			} else
 			{
-				decl = new VariableDeclaration($1,$2->RepresentType(),declarator);
-				decl -> SetSourceNode(compound_decl);
-				static_cast<VariableDeclaration*>(decl)->ValidateInitialization();
-				context.current_context()->add(decl);
+				auto var = new VariableDeclaration($1,$2->RepresentType(),declarator);
+				var -> SetSourceNode(compound_decl);
+				static_cast<VariableDeclaration*>(var)->ValidateInitialization();
+				context.current_context()->add(var);
+				compound_decl -> Declarations().push_back(var);
 			}
 			// add the sub-declaration into the easy access list.
-			compound_decl -> Declarations().push_back(decl);
 		}
 	}
 	| StorageClassSpecifier QualifiedTypeSpecifier
@@ -1253,6 +1255,14 @@ Stmt
 	{
 		$$ = $1;
 	}
+	| ReadStmt
+	{
+		$$ = $1;
+	}
+	| WriteStmt
+	{
+		$$ = $1;
+	}
 	| Label
 	{
 		$$ = $1;
@@ -1283,6 +1293,21 @@ StmtList
 	{
 		$$ = new CompoundStmt();
 		context.push_context($$);
+	}
+	;
+
+ReadStmt
+	: "read" "(" Expr ")"
+	{
+		$$ = new ReadStmt($3);
+		$$->SetLocation(@$);
+	}
+	;
+WriteStmt
+	: "write" "(" Expr ")"
+	{
+		$$ = new WriteStmt($3);
+		$$->SetLocation(@$);
 	}
 	;
 

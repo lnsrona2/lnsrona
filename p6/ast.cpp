@@ -4,7 +4,7 @@
 using namespace C1;
 using namespace C1::AST;
 using namespace std;
-
+using namespace C1::PCode;
 
 
 void BinaryExpr::Dump(ostream& os) const
@@ -28,7 +28,7 @@ C1::AST::QualType C1::AST::BinaryExpr::ReturnType() const
 
 C1::AST::ExprValueType C1::AST::BinaryExpr::ValueType() const
 {
-	return RValue;
+	return XValue;
 }
 
 bool C1::AST::BinaryExpr::HasSideEffect() const
@@ -78,6 +78,19 @@ PosfixExpr* C1::AST::PosfixExpr::MakePosfixExpr(OperatorsEnum op, Expr* sub_expr
 	return expr;
 }
 
+C1::AST::ExprValueType C1::AST::PosfixExpr::ValueType() const
+{
+	return XValue;
+}
+
+void C1::AST::PosfixExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	m_SubExpr->Generate(dome); // RValue
+	m_SubExpr->GenerateLValue(dome);
+	dome.EmplaceInstruction(opr, 0, m_Operator);
+
+}
+
 C1::AST::CallExpr::CallExpr(Expr* func, std::list<Expr*>* args)
 : m_FuncExpr(func), m_Arguments(std::move(*args))
 {
@@ -115,7 +128,7 @@ QualType C1::AST::CallExpr::ReturnType() const
 
 C1::AST::ExprValueType C1::AST::CallExpr::ValueType() const
 {
-	return RValue;
+	return XValue;
 }
 
 bool C1::AST::CallExpr::HasSideEffect() const
@@ -131,8 +144,24 @@ bool C1::AST::CallExpr::Evaluatable() const
 CallExpr* C1::AST::CallExpr::MakeCallExpr(Expr* callee, std::list<Expr*>* args)
 {
 	auto expr = new CallExpr(callee, args);
-
+	if (callee->ValueType() != LValue)
+	{
+		error(expr, "callable object must have a L-Value");
+	}
 	return expr;
+}
+
+void C1::AST::CallExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	for (auto itr = m_Arguments.rbegin(); itr != m_Arguments.rend(); itr++)
+	{
+		dome << **itr;
+	}
+	auto return_val_size = m_FuncExpr->ReturnType().As<FunctionType>()->ReturnType()->Size();
+	dome.EmplaceInstruction(isp, 0, return_val_size);
+	m_FuncExpr->GenerateLValue(dome);
+	// 1 means load stack top to the offset
+	dome.EmplaceInstruction(cal, 1, 0);
 }
 
 C1::AST::DeclRefExpr::DeclRefExpr(DeclContext* lookup_context, TypeContext* type_context, const std::string &name)
@@ -203,6 +232,42 @@ DeclRefExpr* C1::AST::DeclRefExpr::MakeDeclRefExpr(DeclContext* lookup_context, 
 	return new DeclRefExpr(lookup_context,type_context, name);
 }
 
+void C1::AST::DeclRefExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	size_t base = PCode::SS_BP;
+	auto variable = dynamic_cast<VariableDeclaration*>(m_RefDecl);
+	auto param = dynamic_cast<ParameterDeclaration*>(m_RefDecl);
+	auto func = dynamic_cast<FunctionDeclaration*>(m_RefDecl);
+	if (m_RefDecl->StorageClassSpecifier() == SCS_STATIC) base = PCode::DS;
+	else if (variable && variable->IsGlobal()) base = PCode::SS;
+	else if (param) base = PCode::SS_BP;
+	else if (func) base = PCode::SS;
+	dome.EmplaceInstruction(lit, base, m_RefDecl->Offset());
+}
+
+void C1::AST::DeclRefExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateLValue(dome);
+	dome.EmplaceInstruction(lar, 0, 0);
+}
+
+C1::AST::ComposedValue C1::AST::DeclRefExpr::Evaluate() const
+{
+	auto decl = dynamic_cast<const VariableDeclaration*>(RefDecl());
+	if (decl && decl->DeclType().IsConst() && decl->InitializeExpr()->Evaluatable())
+	{
+		return decl->InitializeExpr()->Evaluate();
+	}
+	else
+	{
+		C1::AST::ComposedValue val;
+		val.Int = 0;
+		return val;
+	}
+}
+
+
+
 C1::AST::UnaryExpr::UnaryExpr(OperatorsEnum op, Expr* sub_expr)
 : m_Operator(op), m_SubExpr(sub_expr)
 {
@@ -223,7 +288,10 @@ C1::AST::QualType C1::AST::UnaryExpr::ReturnType() const
 
 C1::AST::ExprValueType C1::AST::UnaryExpr::ValueType() const
 {
-	return RValue;
+	if (m_Operator != OP_ADDADD && m_Operator != OP_SUBSUB)
+		return RValue;
+	else
+		return LValue;
 }
 
 bool C1::AST::UnaryExpr::HasSideEffect() const
@@ -279,6 +347,65 @@ UnaryExpr* C1::AST::UnaryExpr::MakeUnaryExpr(OperatorsEnum op, Expr* sub_expr)
 	return expr;
 }
 
+void C1::AST::UnaryExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	m_SubExpr->GenerateLValue(dome);
+	dome.EmplaceInstruction(opr, 0, m_Operator); //unary operator don't subtract stack top
+	//dome.EmplaceInstruction(isp, 0, 1); //Recover the address we just used.
+	//m_SubExpr->GenerateLValue(dome);
+}
+
+C1::AST::ComposedValue C1::AST::UnaryExpr::Evaluate() const
+{
+	auto val = m_SubExpr->Evaluate();
+	switch (m_Operator)
+	{
+	case C1::OP_NEG:
+		{
+			auto type = m_SubExpr->ReturnType();
+			if (type->IsFloatType())
+				val.Float = -val.Float;
+			else
+				val.Int = -val.Int;
+		}
+		break;
+	case C1::OP_NOT:
+		{val.Int = !val.Int; }
+		break;
+	case C1::OP_REVERSE:
+		{val.Int = ~val.Int; }
+		break;
+	case C1::OP_ADDADD:
+	case C1::OP_SUBSUB:
+		break;
+	case C1::OP_POS:
+	default:
+		break;
+	}
+	return val;
+}
+
+void C1::AST::UnaryExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	switch (m_Operator)
+	{
+	case C1::OP_NEG:
+	case C1::OP_NOT:
+	case C1::OP_REVERSE:
+		m_SubExpr->Generate(dome);
+		dome << gen(opr, 0, m_Operator);
+		break;
+	case C1::OP_ADDADD:
+	case C1::OP_SUBSUB:
+		GenerateLValue(dome);
+		dome << gen(lar, 0, 0);//Read back our result.
+		break;
+	case C1::OP_POS:
+	default:
+		break;
+	}
+}
+
 C1::AST::AssignExpr::AssignExpr(Expr* lhs, Expr* rhs)
 : BinaryExpr(OP_ASSIGN,lhs,rhs)
 {
@@ -289,7 +416,7 @@ C1::AST::AssignExpr::AssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs)
 {
 }
 
-const OperatorsEnum C1::AST::AssignExpr::PrefixedOperator() const
+const C1::OperatorsEnum C1::AST::AssignExpr::PrefixedOperator() const
 {
 	return OperatorsEnum(m_Operator - OP_ADD_ASSIGN + OP_ADD);
 }
@@ -366,6 +493,24 @@ void C1::AST::AssignExpr::Dump(std::ostream& ostr) const
 		ostr << *LeftSubExpr() << Operator() << *dynamic_cast<const BinaryExpr*>(RightSubExpr())->RightSubExpr();
 }
 
+void C1::AST::AssignExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	RightSubExpr()->Generate(dome);
+	LeftSubExpr()->GenerateLValue(dome);
+	dome << gen(sar, 0, 0);
+	auto size = RightSubExpr()->ReturnType()->Size();
+	dome << gen(isp, 0, -static_cast<int>(size));
+	LeftSubExpr()->GenerateLValue(dome);
+	// It's stupid , but I can't figure out a more elegant way
+}
+
+void C1::AST::AssignExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	RightSubExpr()->Generate(dome);
+	LeftSubExpr()->GenerateLValue(dome);
+	dome << gen(sar, 0, 0);
+}
+
 C1::AST::IndexExpr::IndexExpr(Expr* host_expr, Expr* index_expr)
 : BinaryExpr(OP_INDEX,host_expr,index_expr)
 {
@@ -412,6 +557,25 @@ IndexExpr* C1::AST::IndexExpr::MakeIndexExpr(Expr* lhs, Expr* rhs)
 		error(expr, "Right operand of Index operator must have a integer type");
 	}
 	return expr;
+}
+
+void C1::AST::IndexExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	dome << *LeftSubExpr();
+	dome << *RightSubExpr();
+	auto size = LeftSubExpr()->ReturnType().As<DereferencableType>()->Base()->Size();
+	if (size != 1)
+	{
+		dome << gen(lit, 0, size);
+		dome << gen(opr, 0, OP_MUL);
+	}
+	dome << gen(opr, 0, OP_ADD);
+}
+
+void C1::AST::IndexExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateLValue(dome);
+	dome << gen(lar, 0, 0);
 }
 
 C1::AST::ArithmeticExpr::ArithmeticExpr(OperatorsEnum op, Expr* lhs, Expr* rhs)
@@ -548,6 +712,123 @@ C1::AST::QualType C1::AST::ArithmeticExpr::ReturnType() const
 	return ltype->AffiliatedContext()->Error();
 }
 
+void C1::AST::ArithmeticExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	auto lhs = LeftSubExpr();
+	auto rhs = RightSubExpr();
+	auto op = m_Operator;
+	auto ltype = lhs->ReturnType();
+	auto rtype = rhs->ReturnType();
+	// Well , you always need to build it.
+
+	if (!ltype->IsArithmeticType() || !rtype->IsArithmeticType())
+	{
+		if (op == OP_ADD)
+		{
+			// int + pointer || pointer + int
+			if (ltype->IsAddressType() && rtype->IsIntegerType())
+			{
+				dome << *lhs;
+				dome << *rhs;
+				auto size = ltype.As<DereferencableType>()->Base()->Size();
+				if (size != 1)
+				{
+					dome << gen(lit, 0, size);
+					dome << gen(opr, 0, OP_MUL);
+				}
+				dome << gen(opr, 0, OP_ADD);
+			}
+			if (ltype->IsIntegerType() && rtype->IsAddressType())
+			{
+				dome << *lhs;
+				auto size = ltype.As<DereferencableType>()->Base()->Size();
+				if (size != 1)
+				{
+					dome << gen(lit, 0, size);
+					dome << gen(opr, 0, OP_MUL);
+				}
+				dome << *rhs;
+				dome << gen(opr, 0, OP_ADD);
+			}
+		}
+		else if (op == OP_SUB)
+		{
+			// pointer - int || pointer(base) - pointer(base)
+			if (ltype->IsAddressType() && rtype->IsIntegerType())
+			{
+				dome << *lhs;
+				dome << *rhs;
+				auto size = ltype.As<DereferencableType>()->Base()->Size();
+				if (size != 1)
+				{
+					dome << gen(lit, 0, size);
+					dome << gen(opr, 0, OP_MUL);
+				}
+				dome << gen(opr, 0, OP_SUB);
+			}
+			else if (ltype->IsAddressType() && rtype->IsAddressType())
+			if (ltype.As<DereferencableType>()->Base() == rtype.As<DereferencableType>()->Base())
+			{
+				auto size = ltype.As<DereferencableType>()->Base()->Size();
+				dome << *lhs;
+				dome << *rhs;
+				dome << gen(opr, 0, OP_SUB);
+				if (size != 1)
+				{
+					dome << gen(lit, 0, size);
+					dome << gen(opr, 0, OP_DIV);
+				}
+			}
+		}
+		else if (op == OP_EQL || op == OP_NEQ)
+		{
+			dome << *lhs;
+			dome << *rhs;
+			dome << gen(opr, 0, op);
+		}
+	}
+	else {
+		switch (op)
+		{
+			// Integer & Float Type Operators
+		case C1::OP_ADD:
+		case C1::OP_SUB:
+		case C1::OP_MUL:
+		case C1::OP_DIV:
+		case C1::OP_EQL:
+		case C1::OP_NEQ:
+		case C1::OP_LSS:
+		case C1::OP_GEQ:
+		case C1::OP_GTR:
+		case C1::OP_LEQ:
+			{
+				long ir_type = 0;
+				if (ltype->IsFloatType()) ir_type = 3;
+							   
+				dome << *lhs;
+				dome << *rhs;
+				dome << gen(opr, ir_type, op);
+			}
+			break;
+			// Integer Type Operators
+		case C1::OP_MOD:
+		case C1::OP_AND:
+		case C1::OP_OR:
+		case C1::OP_XOR:
+		case C1::OP_LSH:
+		case C1::OP_RSH:
+			{
+				dome << *lhs;
+				dome << *rhs;
+				dome << gen(opr, 0, op);
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 C1::AST::LogicExpr::LogicExpr(OperatorsEnum op, Expr* lhs, Expr* rhs)
 : BinaryExpr(op,lhs,rhs)
 {
@@ -568,6 +849,26 @@ LogicExpr* C1::AST::LogicExpr::MakeLogicExpr(OperatorsEnum op, Expr* lhs, Expr* 
 C1::AST::QualType C1::AST::LogicExpr::ReturnType() const
 {
 	return LeftSubExpr()->ReturnType()->AffiliatedContext()->Bool();
+}
+
+void C1::AST::LogicExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	if (m_Operator == OP_OROR)
+	{
+		dome << *LeftSubExpr();
+		int cx = dome.EmplaceInstruction(jpe,1,0);
+		dome << *RightSubExpr();
+		dome << gen(opr, 0, m_Operator);//op is the key!
+		dome.Instruction(cx).a = cx;
+	}
+	else if (m_Operator == OP_ANDAND)
+	{
+		dome << *LeftSubExpr();
+		int cx = dome.EmplaceInstruction(jpc, 1, 0);
+		dome << *RightSubExpr();
+		dome << gen(opr, 0, m_Operator);//op is the key!
+		dome.Instruction(cx).a = cx;
+	}
 }
 
 C1::AST::ConditionalExpr::ConditionalExpr(Expr* condition, Expr* true_expr, Expr* false_expr)
@@ -636,6 +937,10 @@ void C1::AST::TypeExpr::Dump(std::ostream& os) const
 	os << *m_Specifier << *m_Declarator;
 }
 
+void C1::AST::TypeExpr::Generate(C1::PCode::CodeDome& dome)
+{
+}
+
 C1::AST::MemberExpr::MemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op)
 : m_HostExpr(host), m_MemberName(member_name), m_Operator(op)
 {
@@ -699,6 +1004,19 @@ MemberExpr* C1::AST::MemberExpr::MakeMemberExpr(Expr* host, const std::string &m
 	return new MemberExpr(host, member_name, op);
 }
 
+void C1::AST::MemberExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	m_HostExpr->GenerateLValue(dome);
+	dome << gen(lit,0, m_MemberDeclaration->Offset());
+	dome << gen(opr, 0, OP_ADD);
+}
+
+void C1::AST::MemberExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateLValue(dome);
+	dome << gen(lar, 0, 0);
+}
+
 C1::AST::ExplicitCastExpr::ExplicitCastExpr(TypeExpr* target_type_expr, Expr* source_expr)
 : m_TargetTypeExpr(target_type_expr), CastExpr(source_expr, target_type_expr->DeclType())
 {
@@ -729,6 +1047,12 @@ std::string C1::AST::StringLiteral::DecodeString(const std::string & raw_str)
 std::string C1::AST::StringLiteral::EncodeString(const std::string & raw_str)
 {
 	return raw_str;
+}
+
+void C1::AST::StringLiteral::Generate(C1::PCode::CodeDome& dome)
+{
+	size_t addr = dome.EmplaceString(m_DecodedString);
+	dome << gen(lit, PCode::DS, addr); // In static data segment
 }
 
 void C1::AST::InitializerList::Dump(std::ostream& os) const
@@ -803,10 +1127,40 @@ C1::AST::InitializerList::InitializerList(TypeContext *context)
 {
 }
 
+void C1::AST::InitializerList::Generate(C1::PCode::CodeDome& dome)
+{
+	for (auto var : *this)
+	{
+		dome << *var;
+	}
+}
+
 C1::AST::CommaExpr::CommaExpr(Expr* lhs, Expr* rhs)
 : BinaryExpr(OP_COMMA,lhs,rhs)
 {
 
+}
+
+void C1::AST::CommaExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *LeftSubExpr();
+	dome << gen(isp, 0, -static_cast<int>(LeftSubExpr()->ReturnType()->Size()));
+	dome << *RightSubExpr();
+}
+
+C1::AST::QualType C1::AST::CommaExpr::ReturnType() const
+{
+	return RightSubExpr()->ReturnType();
+}
+
+C1::AST::ComposedValue C1::AST::CommaExpr::Evaluate() const
+{
+	return RightSubExpr()->Evaluate();
+}
+
+bool C1::AST::CommaExpr::Evaluatable() const
+{
+	return RightSubExpr()->Evaluatable();
 }
 
 C1::AST::CompoundStmt::CompoundStmt()
@@ -824,6 +1178,35 @@ void C1::AST::CompoundStmt::Dump(std::ostream& os) const
 	os << "}" << endl;
 }
 
+void C1::AST::CompoundStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	size_t local_var_size = 0;
+	//const size_t control_layer_size = 2;
+	for (auto decl : *this)
+	{
+		auto var = dynamic_cast<VariableDeclaration*>(decl);
+		if (var)
+		{
+			if (var->StorageClassSpecifier() == SCS_STATIC) {
+				auto addr = dome.EmplaceDataBlcok(var->DeclType()->Size());
+				var->SetOffset(addr);
+			}
+			else
+			{
+				var->SetOffset(dome.SP);
+				auto varsize = var->DeclType()->Size();
+				local_var_size += varsize;
+				dome.SP += varsize;
+			}
+		}
+	}
+	for (auto node : Children())
+	{
+		dome << *node;
+	}
+	dome << gen(isp, 0, -static_cast<int>(local_var_size));
+}
+
 C1::AST::WhileStmt::WhileStmt(Expr* condition, Stmt* action)
 : IterationStmt(action, condition)
 {
@@ -833,6 +1216,18 @@ void C1::AST::WhileStmt::Dump(std::ostream& os) const
 {
 	os << "while (" << *m_Condition << ")" << endl;
 	os << *m_Action;
+}
+
+void C1::AST::WhileStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	m_EntryAddress = dome.InstructionCount();
+	dome << *m_Condition;
+	int cx = dome.EmplaceInstruction(jpc, 0, 0);
+	m_ActionEntryAddress = dome.InstructionCount();
+	dome << *m_Action;
+	dome << gen(jmp, 0, m_EntryAddress);
+	m_ExitAddress = dome.InstructionCount();
+	dome.Instruction(cx).a = m_ExitAddress;
 }
 
 C1::AST::ForStmt::ForStmt(Stmt* initialize_stmt, Expr* condition, Expr* post_action, Stmt* action)
@@ -876,6 +1271,25 @@ void C1::AST::IfStmt::Dump(std::ostream& os) const
 		os << "else" << endl << *m_ElseAction;
 }
 
+void C1::AST::IfStmt::Generate(C1::PCode::CodeDome& dome)
+{
+
+	dome << *m_Condition;
+	auto cx = dome.EmplaceInstruction(jpc, 0, 0);
+	dome << *m_ThenAction;
+	if (m_ElseAction)
+	{
+		auto cx1 = dome.EmplaceInstruction(jmp, 0, 0);
+		dome.Instruction(cx).a = dome.InstructionCount();
+		dome << *m_ElseAction;
+		dome.Instruction(cx1).a = dome.InstructionCount();
+	}
+	else
+	{
+		dome.Instruction(cx).a = dome.InstructionCount();
+	}
+}
+
 void C1::AST::PrimaryTypeSpecifier::Dump(std::ostream& os) const
 {
 	os << RepresentType()->ToString() << " ";
@@ -894,6 +1308,25 @@ void C1::AST::StructBody::Dump(std::ostream& os) const
 C1::AST::StructBody::StructBody()
 {
 
+}
+
+void C1::AST::StructBody::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateFieldsLayout();
+}
+
+void C1::AST::StructBody::GenerateFieldsLayout()
+{
+	size_t local_var_size = 0;
+	for (auto decl : *this)
+	{
+		auto field = dynamic_cast<FieldDeclaration*>(decl);
+		if (field)
+		{
+			field->SetOffset(local_var_size);
+			local_var_size += field->DeclType()->Size();
+		}
+	}
 }
 
 C1::AST::StructDeclaration::StructDeclaration(const std::string& name, StructBody* definition)
@@ -981,6 +1414,7 @@ void C1::AST::StructDeclaration::SetDefinition(StructBody* val)
 {
 	m_Definition.reset(val);
 	val->SetParent(this);
+	m_Definition->GenerateFieldsLayout();
 	if (DeclType())
 	{
 		dynamic_cast<StructType*>(DeclType())->SetDefinition(val);
@@ -1027,6 +1461,17 @@ void C1::AST::VarDeclStmt::Dump(std::ostream& os) const
 	CompoundDeclaration::Dump(os);
 }
 
+void C1::AST::VarDeclStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	for (auto var : m_DeclarationList)
+	{
+		if (!var->InitializeExpr())
+			dome << gen(isp, 0, var->DeclType()->Size());
+		else
+			dome << *var->InitializeExpr();
+	}
+}
+
 C1::AST::TypedefStmt::TypedefStmt(QualifiedTypeSpecifier* qts, std::list<Declarator*>* dlist)
 : CompoundDeclaration(qts, std::move(*dlist))
 {
@@ -1066,6 +1511,24 @@ C1::AST::ParameterList::ParameterList()
 {
 }
 
+void C1::AST::ParameterList::GenerateParameterLayout(size_t ReturnValueSize)
+{
+	int base = -static_cast<int>(ReturnValueSize);
+	for (auto decl : *this)
+	{
+		auto param = dynamic_cast<ParameterDeclaration*>(decl);
+		if (param)
+		{
+			base -= param->DeclType()->Size();
+			param->SetOffset(base);
+		}
+	}
+}
+
+void C1::AST::ParameterList::Generate(C1::PCode::CodeDome& dome)
+{
+}
+
 //ParameterList::InsertionResult ParameterList::add(ParameterDeclaration* param)
 //{
 //	param->SetParent(this);
@@ -1094,6 +1557,10 @@ C1::AST::Declarator::Declarator(Declarator* base)
 	}
 }
 
+void C1::AST::Declarator::Generate(C1::PCode::CodeDome& dome)
+{
+}
+
 C1::AST::InitDeclarator::InitDeclarator(Declarator* declarator, Initializer* initializer)
 : Declarator(declarator), m_Initializer(initializer)
 {
@@ -1120,7 +1587,7 @@ C1::AST::QualType C1::AST::InitDeclarator::DecorateType(QualType base_type)
 		if (arr_type) {
 			if (arr_type->Length() == ArrayType::ArrayLengthAuto)
 				arr_type->SetLength(list->size());
-			if (arr_type->Length() < list->size())
+			if (arr_type->Length() < static_cast<int>(list->size()))
 				error(this, "Initializer-list size don't match the object-array size");
 		}
 		else
@@ -1272,6 +1739,10 @@ void C1::AST::Enumerator::Dump(std::ostream& os) const
 		os <<" = " << *m_ValueExpr;
 }
 
+void C1::AST::Enumerator::Generate(C1::PCode::CodeDome& dome)
+{
+}
+
 QualType C1::AST::ParenExpr::ReturnType() const
 {
 	return m_Base->ReturnType();
@@ -1301,6 +1772,21 @@ C1::AST::ParenExpr::ParenExpr(Expr* base)
 void C1::AST::ParenExpr::Dump(std::ostream& os) const
 {
 	os << "(" << *m_Base << ")";
+}
+
+void C1::AST::ParenExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	m_Base->GenerateLValue(dome);
+}
+
+C1::AST::ComposedValue C1::AST::ParenExpr::Evaluate() const
+{
+	return m_Base->Evaluate();
+}
+
+void C1::AST::ParenExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	m_Base->Generate(dome);
 }
 
 C1::AST::ExprValueType C1::AST::DereferenceExpr::ValueType() const
@@ -1340,6 +1826,17 @@ DereferenceExpr* C1::AST::DereferenceExpr::MakeDereferenceExpr(Expr* base)
 	return expr;
 }
 
+void C1::AST::DereferenceExpr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+	dome << *m_SubExpr;
+}
+
+void C1::AST::DereferenceExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateLValue(dome);
+	dome << gen(lar, 0, 0);
+}
+
 C1::AST::ExprValueType C1::AST::AddressOfExpr::ValueType() const
 {
 	return RValue;
@@ -1368,6 +1865,11 @@ AddressOfExpr* C1::AST::AddressOfExpr::MakeAddressOfExpr(Expr* base)
 		error(expr, "operand of Address operator (&) must be an L-Value expression.");
 	}
 	return expr;
+}
+
+void C1::AST::AddressOfExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	m_SubExpr->GenerateLValue(dome);
 }
 
 C1::AST::ExprValueType C1::AST::IncrementExpr::ValueType() const
@@ -1413,6 +1915,12 @@ C1::AST::SizeofExpr::SizeofExpr(Expr* expr)
 
 }
 
+void C1::AST::SizeofExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	auto size = m_SubExpr->ReturnType()->Size();
+	dome << gen(lit,0,size);
+}
+
 C1::AST::QualType C1::AST::SizeofTypeExpr::ReturnType() const
 {
 	return m_TypeExpr->DeclType()->AffiliatedContext()->Int();
@@ -1449,6 +1957,11 @@ C1::AST::SizeofTypeExpr::SizeofTypeExpr(TypeExpr* type_expr)
 void C1::AST::SizeofTypeExpr::Dump(std::ostream& os) const
 {
 	os << "sizeof (" << *m_TypeExpr << ")";
+}
+
+void C1::AST::SizeofTypeExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << gen(lit, 0, m_TypeExpr->DeclType()->Size());
 }
 
 C1::AST::ExprValueType C1::AST::ConstantLiteral::ValueType() const
@@ -1492,6 +2005,11 @@ C1::AST::QualType C1::AST::IntegerLiteral::ReturnType() const
 	return MakeConst(m_TypeContext->Int());
 }
 
+void C1::AST::IntegerLiteral::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << gen(lit, 0, m_Value.Int);
+}
+
 C1::AST::FloatLiteral::FloatLiteral(TypeContext* type_context, const char* raw_str, float value)
 : ConstantLiteral(type_context, raw_str)
 {
@@ -1503,6 +2021,12 @@ C1::AST::QualType C1::AST::FloatLiteral::ReturnType() const
 	return MakeConst(m_TypeContext->Float());
 }
 
+void C1::AST::FloatLiteral::Generate(C1::PCode::CodeDome& dome)
+{
+	size_t addr = dome.EmplaceFloat(m_Value.Float);
+	dome << gen(lod, PCode::DS, addr);
+}
+
 C1::AST::CharacterLiteral::CharacterLiteral(TypeContext* type_context, const char* raw_str, char value)
 : ConstantLiteral(type_context, raw_str)
 {
@@ -1512,6 +2036,11 @@ C1::AST::CharacterLiteral::CharacterLiteral(TypeContext* type_context, const cha
 C1::AST::QualType C1::AST::CharacterLiteral::ReturnType() const
 {
 	return MakeConst(m_TypeContext->Char());
+}
+
+void C1::AST::CharacterLiteral::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << gen(lit, 0, m_Value.Char);
 }
 
 C1::AST::QualType C1::AST::AtomInitializer::ReturnType() const
@@ -1548,6 +2077,11 @@ C1::AST::AtomInitializer::AtomInitializer(Expr* value_expr)
 : m_ValueExpr(value_expr)
 {
 
+}
+
+void C1::AST::AtomInitializer::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *m_ValueExpr;
 }
 
 C1::AST::QualType C1::AST::CastExpr::ReturnType() const
@@ -1600,6 +2134,22 @@ Expr* C1::AST::CastExpr::MakeImplictitCastExpr(QualType target_type, Expr* sourc
 		return new ImplicitCastExpr(target_type, source_expr);
 }
 
+void C1::AST::CastExpr::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *m_SourceExpr;
+	auto source_type = m_SourceExpr->ReturnType();
+	auto target_type = m_TargetType;
+	if (source_type->IsIntegerType() && target_type->IsFloatType())
+	{
+		dome << gen(opr, 1, OP_CAST);
+	}
+	if (source_type->IsFloatType() && target_type->IsIntegerType())
+	{
+		dome << gen(opr, 0, OP_CAST);
+	}
+	// Other kind of cast is for type safety (Let's forgot the conversion function)
+}
+
 void C1::AST::ImplicitCastExpr::Dump(std::ostream& os) const
 {
 	os << "cast<" << m_TargetType << ">(" << *m_SourceExpr << ")";
@@ -1641,6 +2191,10 @@ C1::AST::Expr::ComposedValue C1::AST::Expr::Evaluate() const
 	return val;
 }
 
+void C1::AST::Expr::GenerateLValue(C1::PCode::CodeDome& dome)
+{
+}
+
 C1::AST::Initializer::Initializer()
 {
 
@@ -1655,6 +2209,12 @@ C1::AST::ExprStmt::ExprStmt(Expr* expr)
 void C1::AST::ExprStmt::Dump(std::ostream& os) const
 {
 	os << *m_Expr << ";" << endl;
+}
+
+void C1::AST::ExprStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *m_Expr;
+	dome << gen(isp, 0, -static_cast<int>(m_Expr->ReturnType()->Size()));
 }
 
 C1::AST::ReturnStmt::ReturnStmt(Expr* return_expr /*= nullptr*/)
@@ -1699,6 +2259,10 @@ void C1::AST::NullStmt::Dump(std::ostream& os) const
 	os << ";" << endl;
 }
 
+void C1::AST::NullStmt::Generate(C1::PCode::CodeDome& dome)
+{
+}
+
 void C1::AST::TranslationUnit::Dump(std::ostream& ostr) const
 {
 	for (auto node : Children())
@@ -1717,9 +2281,58 @@ C1::AST::TranslationUnit::~TranslationUnit()
 	set_parent(nullptr);
 }
 
+void C1::AST::TranslationUnit::Generate(C1::PCode::CodeDome& dome)
+{
+	dome.SP = PCode::CodeDome::CallStorageSize;
+	//size_t local_var_size = 0;
+	//const size_t control_layer_size = 2;
+	for (auto decl : *this)
+	{
+		auto var = dynamic_cast<VariableDeclaration*>(decl);
+		if (var)
+		{
+			if (var->StorageClassSpecifier() == SCS_STATIC) {
+				auto addr = dome.EmplaceDataBlcok(var->DeclType()->Size());
+				var->SetOffset(addr);
+			}
+			else
+			{
+				var->SetOffset(dome.SP);
+				auto varsize = var->DeclType()->Size();
+				//local_var_size += varsize;
+				dome.SP += varsize;
+			}
+		}
+	}
+
+	for (auto node : Children())
+	{
+		auto value = dynamic_cast<VarDeclStmt*>(node);
+		if (value)
+			dome << *value;
+	}
+	int cx = dome.EmplaceInstruction(cal, 0, 0);
+	dome << gen(opr, 0, OP_RET);
+	for (auto node : Children())
+	{
+		auto func = dynamic_cast<FunctionDeclaration*>(node);
+		if (func && func->Definition())
+			dome << *func;
+	}
+	auto main = dynamic_cast<FunctionDeclaration*>(this->lookup("main"));
+	if (!main)
+		error(this, "can not find entry point of application (main function).");
+	else
+		dome.Instruction(cx).a = main->Offset();
+}
+
 void C1::AST::TypeSpecifier::Dump(std::ostream& ostr) const
 {
 	ostr << "type_specifier";
+}
+
+void C1::AST::TypeSpecifier::Generate(C1::PCode::CodeDome& dome)
+{
 }
 
 C1::AST::QualType C1::AST::EmptyDeclarator::DecorateType(QualType base_type)
@@ -1734,4 +2347,79 @@ void C1::AST::EmptyDeclarator::Dump(std::ostream& ostr) const
 C1::AST::EmptyDeclarator::EmptyDeclarator()
 {
 
+}
+
+C1::AST::ReadStmt::ReadStmt(Expr* expr)
+: ExprStmt(expr)
+{
+	if (expr->ValueType() != LValue)
+	{
+		error(this, "argument in Read statement must be L-Value");
+	}
+	auto rtype = expr->ReturnType();
+	if (!rtype->IsBasicType())
+	{
+		error(this, "argument in Read statement must have basic type");
+	}
+}
+
+void C1::AST::ReadStmt::Dump(std::ostream& os) const
+{
+	os << "read(" << *m_Expr << ");";
+}
+
+void C1::AST::ReadStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	m_Expr->GenerateLValue(dome);
+	auto type = m_Expr->ReturnType();
+	if (type->IsIntegerType()) {
+		dome << gen(opr, PCode::TP_INT, OP_READ);
+		return;
+	}
+	if (type->IsFloatType()) {
+		dome << gen(opr, PCode::TP_FLOAT, OP_READ);
+		return;
+	}
+}
+
+C1::AST::WriteStmt::WriteStmt(Expr* expr)
+: ExprStmt(expr)
+{
+	if (expr->ReturnType()->IsBasicType())
+	{
+		error(this, "argument in Read statement must have basic type");
+	}
+	auto rtype = expr->ReturnType();
+	if (rtype->IsArrayType() || rtype->IsStructType())
+	{
+		error(this, "can not write struct or array type");
+	}
+}
+
+void C1::AST::WriteStmt::Dump(std::ostream& os) const
+{
+	os << "write(" << *m_Expr << ");";
+}
+
+void C1::AST::WriteStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *m_Expr;
+	auto type = m_Expr->ReturnType();
+	if (type->IsIntegerType()) {
+		dome << gen(opr, PCode::TP_INT, OP_WRITE);
+		return;
+	}
+	if (type->IsFloatType()) {
+		dome << gen(opr, PCode::TP_FLOAT, OP_WRITE);
+		return;
+	}
+	type.RemoveConst();
+	if (type == QualType(type->AffiliatedContext()->String())) {
+		dome << gen(opr, PCode::TP_STRING, OP_WRITE);
+		return;
+	}
+}
+
+void C1::AST::DeclStmt::Generate(C1::PCode::CodeDome& dome)
+{
 }

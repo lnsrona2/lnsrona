@@ -98,6 +98,7 @@ typedef C1::BisonParser::token token;
 "if"			{ current_symbol.move(C1::BisonParser::make_IF(loc)); return token::IF;  }
 "int"			{ current_symbol.move(C1::BisonParser::make_INT(loc)); return token::INT;  }
 "long"			{ current_symbol.move(C1::BisonParser::make_LONG(loc)); return token::LONG;  }
+"read"			{ current_symbol.move(C1::BisonParser::make_READ(loc)); return token::READ;  }
 "register"		{ current_symbol.move(C1::BisonParser::make_REGISTER(SCS_REGISTER,loc)); return token::REGISTER;  }
 "return"		{ current_symbol.move(C1::BisonParser::make_RETURN(loc)); return token::RETURN;  }
 "short"			{ current_symbol.move(C1::BisonParser::make_SHORT(loc)); return token::SHORT;  }
@@ -111,6 +112,7 @@ typedef C1::BisonParser::token token;
 "unsigned"		{ current_symbol.move(C1::BisonParser::make_UNSIGNED(loc)); return token::UNSIGNED;  }
 "void"			{ current_symbol.move(C1::BisonParser::make_VOID(loc)); return token::VOID;  }
 "while"			{ current_symbol.move(C1::BisonParser::make_WHILE(loc)); return token::WHILE;  }
+"write"			{ current_symbol.move(C1::BisonParser::make_WRITE(loc)); return token::WRITE;  }
 "restrict"		{ current_symbol.move(C1::BisonParser::make_RESTRICT(RESTRICT,loc)); return token::RESTRICT; }
 "const"			{ current_symbol.move(C1::BisonParser::make_CONST(CONST,loc)); return token::CONST; }
 "volatile"		{ current_symbol.move(C1::BisonParser::make_VOLATILE(VOLATILE,loc)); return token::VOLATILE; }

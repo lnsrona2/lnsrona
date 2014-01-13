@@ -93,3 +93,17 @@ const NamedDeclaration* DeclContext::lookup(const std::string &name) const
 	}
 	return nullptr;
 }
+
+size_t C1::AST::total_value_size(const DeclContext& context)
+{
+	size_t total_size = 0;
+	for (auto decl : context)
+	{
+		auto var = dynamic_cast<const VariableDeclaration*>(decl);
+		if (var)
+		{
+			total_size += var->DeclType()->Size();
+		}
+	}
+	return total_size;
+}

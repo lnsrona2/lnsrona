@@ -2,6 +2,7 @@
 #include <iostream>
 #include "ast.h"
 #include "cparser.h"
+#include "interpreter.h"
 
 namespace C1
 {

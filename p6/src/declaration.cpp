@@ -95,6 +95,20 @@ void C1::AST::FunctionDeclaration::SetDefinition(Stmt* def)
 	m_Definition.reset(def);
 }
 
+void C1::AST::FunctionDeclaration::Generate(C1::PCode::CodeDome& dome)
+{
+	if (m_Definition)
+	{
+		SetOffset(dome.InstructionCount());
+		dome << PCode::gen(PCode::isp, 0, PCode::CodeDome::CallStorageSize);
+		int spx = dome.SP;
+		dome.SP = PCode::CodeDome::CallStorageSize;
+		dome << *m_Definition;
+		dome.SP = spx;
+		dome << PCode::gen(PCode::opr, 0, OP_RET);
+	}
+}
+
 C1::AST::ParameterDeclaration::ParameterDeclaration(QualifiedTypeSpecifier* qts, Declarator* dr)
 : m_QTSpecifier(qts), m_Declarator(dr)
 {
@@ -124,6 +138,10 @@ DeclContext::InsertionResult C1::AST::ParameterDeclaration::AddToContext(DeclCon
 C1::AST::ParameterDeclaration::~ParameterDeclaration()
 {
 
+}
+
+void C1::AST::ParameterDeclaration::Generate(C1::PCode::CodeDome& dome)
+{
 }
 
 DeclContext::InsertionResult C1::AST::NamedDeclaration::AddToContext(DeclContext& context)
@@ -195,11 +213,13 @@ C1::AST::TypedefDeclaration::TypedefDeclaration(QualType qual_type, Declarator* 
 C1::AST::ValueDeclaration::ValueDeclaration(StorageClassSpecifierEnum scs, QualType decl_type, const std::string& name)
 : NamedDeclaration(name), m_storage_specifier(scs), m_decltype(decl_type)
 {
+	m_Offset = -1;
 }
 
 C1::AST::ValueDeclaration::ValueDeclaration(StorageClassSpecifierEnum scs, QualType base_type, Declarator* declarator)
 : m_storage_specifier(scs)
 {
+	m_Offset = -1;
 	SetKind(DECL_VALUE);
 	SetSourceNode(declarator);
 	SetDeclType(declarator->DecorateType(base_type));
@@ -208,6 +228,7 @@ C1::AST::ValueDeclaration::ValueDeclaration(StorageClassSpecifierEnum scs, QualT
 
 C1::AST::ValueDeclaration::ValueDeclaration()
 {
+	m_Offset = -1;
 	SetKind(DECL_VALUE);
 }
 
@@ -231,10 +252,10 @@ C1::AST::FieldDeclaration::FieldDeclaration(QualType qual_type, Declarator* decl
 	}
 }
 
-const size_t C1::AST::FieldDeclaration::Offset() const
-{
-	return m_Offset;
-}
+//const size_t C1::AST::FieldDeclaration::Offset() const
+//{
+//	return m_Offset;
+//}
 
 C1::AST::VariableDeclaration::VariableDeclaration(StorageClassSpecifierEnum storage_class_specifier, QualType qual_type, Declarator* p_declarator)
 : ValueDeclaration(storage_class_specifier, qual_type, p_declarator)
@@ -274,4 +295,9 @@ bool C1::AST::VariableDeclaration::ValidateInitialization()
 	else
 		return true;
 
+}
+
+bool C1::AST::VariableDeclaration::IsGlobal() const
+{
+	return m_Affiliation->parent() == nullptr;
 }

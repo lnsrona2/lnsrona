@@ -67,6 +67,8 @@ namespace C1
 			const std::string & Name() const { return m_FileName; }
 			virtual void Dump(std::ostream& ostr) const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::string m_FileName;
 		};
@@ -96,9 +98,11 @@ namespace C1
 		public:
 			typedef ComposedValue ComposedValue;
 			virtual QualType ReturnType() const = 0;
+			// Only valid for L-Value Expression , return -1
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
 			virtual ExprValueType ValueType() const = 0;
 			virtual bool HasSideEffect() const = 0;
-
+			// Only valid for Evaluatable Expression , return 0
 			virtual ComposedValue Evaluate() const;
 
 			virtual bool Evaluatable() const = 0;
@@ -129,12 +133,16 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
+			// Always X-Value (pure R Value)
 			virtual ExprValueType ValueType() const;
 
 			virtual bool HasSideEffect() const;
 
 			// Always false, ignore the C++11 const-expr specifier
 			virtual bool Evaluatable() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 
 		private:
 			std::unique_ptr<Expr> m_FuncExpr;
@@ -158,6 +166,10 @@ namespace C1
 			void SetRefDeclContext(DeclContext* reference_context);
 
 			void Dump(std::ostream&) const;
+
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			DeclRefExpr(DeclContext* lookup_context, TypeContext* type_context, const std::string &name);
 			ValueDeclaration* ResoloveReference();
@@ -169,6 +181,9 @@ namespace C1
 			virtual bool HasSideEffect() const;
 
 			virtual bool Evaluatable() const;
+
+			virtual ComposedValue Evaluate() const;
+
 
 			std::string m_Name;
 
@@ -194,6 +209,12 @@ namespace C1
 
 			virtual bool Evaluatable() const;
 
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual ComposedValue Evaluate() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::unique_ptr<Expr> m_Base;
 		};
@@ -217,8 +238,15 @@ namespace C1
 
 			virtual bool Evaluatable() const;
 
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual ComposedValue Evaluate() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 		protected:
 			UnaryExpr(OperatorsEnum op, Expr* sub_expr);
+
+
 			OperatorsEnum m_Operator;
 			std::unique_ptr<Expr> m_SubExpr;
 		};
@@ -230,6 +258,13 @@ namespace C1
 
 			PosfixExpr(OperatorsEnum op, Expr* Base);
 			void Dump(std::ostream&) const;
+
+			virtual ExprValueType ValueType() const;
+
+			//virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 		};
 
@@ -260,6 +295,7 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
+			// Always R-Value
 			virtual ExprValueType ValueType() const;
 
 			virtual bool HasSideEffect() const;
@@ -286,6 +322,11 @@ namespace C1
 			// Side effect : Always False , if there is no operator overload
 		protected:
 			DereferenceExpr(Expr* base);
+
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class AddressOfExpr : public UnaryExpr
@@ -299,8 +340,12 @@ namespace C1
 			// const (pointer of the sub-expression's type)
 			virtual QualType ReturnType() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			AddressOfExpr(Expr* base);
+
+
 		};
 
 		class AssignExpr : public BinaryExpr
@@ -332,6 +377,11 @@ namespace C1
 		protected:
 			AssignExpr(Expr* lhs, Expr* rhs);
 			AssignExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
+
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class IndexExpr : public BinaryExpr
@@ -355,6 +405,10 @@ namespace C1
 			// Always false
 			virtual bool Evaluatable() const;
 
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 
@@ -367,6 +421,8 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class LogicExpr : public BinaryExpr
@@ -377,6 +433,8 @@ namespace C1
 			LogicExpr(OperatorsEnum op, Expr* lhs, Expr* rhs);
 
 			virtual QualType ReturnType() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		};
 
@@ -417,6 +475,9 @@ namespace C1
 			void SetDeclarator(Declarator*);
 			QualType DeclType() const { return m_Type; }
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::unique_ptr<Declarator> m_Declarator;
 			std::unique_ptr<QualifiedTypeSpecifier> m_Specifier;
@@ -441,6 +502,8 @@ namespace C1
 
 			virtual ComposedValue Evaluate() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class SizeofTypeExpr : public Expr
@@ -459,6 +522,8 @@ namespace C1
 			virtual ComposedValue Evaluate() const;
 
 			virtual bool Evaluatable() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		protected:
 			std::unique_ptr<TypeExpr> m_TypeExpr;
@@ -487,6 +552,11 @@ namespace C1
 
 		protected:
 			MemberExpr(Expr* host, const std::string &member_name, OperatorsEnum op);
+
+			virtual void GenerateLValue(C1::PCode::CodeDome& dome);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 			OperatorsEnum			m_Operator;
 			std::unique_ptr<Expr>	m_HostExpr;
 			std::string				m_MemberName;
@@ -516,6 +586,8 @@ namespace C1
 			virtual bool Evaluatable() const;
 
 			virtual void Dump(std::ostream& ostr) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 			FunctionDeclaration* m_ConversionFunction;
 			QualType m_TargetType;
@@ -574,6 +646,9 @@ namespace C1
 			// Not implemented yet
 			static std::string DecodeString(const std::string & encoded_str);
 			static std::string EncodeString(const std::string & raw_str);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::string m_DecodedString; // The true value of this string literal
 		};
@@ -585,6 +660,9 @@ namespace C1
 			IntegerLiteral(TypeContext* type_context, const char* raw_str, int value,int dec);
 
 			virtual QualType ReturnType() const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			int m_decimal;
 		};
@@ -597,6 +675,8 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class CharacterLiteral : public ConstantLiteral
@@ -606,12 +686,15 @@ namespace C1
 
 			virtual QualType ReturnType() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class Initializer : public Expr
 		{
 		public:
 			virtual bool IsList() const = 0;
+			//virtual void Generate(C1::PCode::CodeDome& dome) = delete;
 		protected:
 			Initializer();
 		};
@@ -633,6 +716,8 @@ namespace C1
 			virtual bool Evaluatable() const;
 
 			virtual void Dump(std::ostream& ostr) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		protected:
 			std::unique_ptr<Expr> m_ValueExpr;
@@ -657,6 +742,8 @@ namespace C1
 
 			virtual bool Evaluatable() const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			TypeContext *m_TypeContext;
 			QualType m_ReturnType;
@@ -666,6 +753,15 @@ namespace C1
 		{
 		public:
 			CommaExpr(Expr* lhs, Expr* rhs);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
+			virtual QualType ReturnType() const;
+
+			virtual ComposedValue Evaluate() const;
+
+			virtual bool Evaluatable() const;
+
 		};
 
 		class Stmt : public Node
@@ -679,11 +775,16 @@ namespace C1
 		public :
 			NullStmt() {}
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		// wrap an declaration into an statement
 		class DeclStmt : public Stmt
 		{
+		public:
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		};
 
@@ -692,6 +793,9 @@ namespace C1
 		public:
 			CompoundStmt();
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class ExprStmt : public Stmt
@@ -702,6 +806,9 @@ namespace C1
 			Expr* Expression() { return m_Expr.get(); }
 			void SetExpression(Expr* expr) { m_Expr.reset(expr); }
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::unique_ptr<Expr> m_Expr;
 		};
@@ -713,19 +820,26 @@ namespace C1
 			void Dump(std::ostream&) const;
 		};
 
-		class ContinueStmt : public Stmt
+		class ReadStmt : public ExprStmt
 		{
 		public:
-			ContinueStmt();
-			void Dump(std::ostream&) const;
+			explicit ReadStmt(Expr*);
+			void Dump(std::ostream& os) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
-		class BreakStmt : public Stmt
+		class WriteStmt : public ExprStmt
 		{
 		public:
-			BreakStmt();
-			void Dump(std::ostream&) const;
+			explicit WriteStmt(Expr*);
+			void Dump(std::ostream& os) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
+
 
 		class CaseLabel : public Stmt
 		{
@@ -738,10 +852,36 @@ namespace C1
 			const Expr* Condition() const { return m_Condition.get(); }
 			void SetAction(Stmt* val) { m_Action.reset(val); }
 			void SetCondition(Expr* val) { m_Condition.reset(val); }
+			size_t EntryAddress() const { return m_EntryAddress; }
+			size_t ActionEntryAddress() const { return m_ActionEntryAddress; }
+			size_t ExitAddress() const { return m_ExitAddress; }
 		protected:
 			IterationStmt(Stmt* action = nullptr, Expr* condtion = nullptr);
 			std::unique_ptr<Expr> m_Condition;
 			std::unique_ptr<Stmt> m_Action;
+
+			size_t m_EntryAddress;
+			size_t m_ActionEntryAddress;
+			size_t m_ExitAddress;
+		};
+
+		class ContinueStmt : public Stmt
+		{
+		public:
+			ContinueStmt();
+			void Dump(std::ostream&) const;
+
+		protected:
+			IterationStmt*	m_TargetIterationStmt;
+		};
+
+		class BreakStmt : public Stmt
+		{
+		public:
+			BreakStmt();
+			void Dump(std::ostream&) const;
+		protected:
+			IterationStmt*	m_TargetIterationStmt;
 		};
 
 		class WhileStmt : public IterationStmt
@@ -749,6 +889,9 @@ namespace C1
 		public:
 			WhileStmt(Expr* condition, Stmt* action);
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class ForStmt : public IterationStmt
@@ -779,6 +922,8 @@ namespace C1
 			const Stmt* Else() const { return m_ElseAction.get(); }
 			void Dump(std::ostream&) const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		protected:
 			std::unique_ptr<Expr> m_Condition;
 			std::unique_ptr<Stmt> m_ThenAction;
@@ -801,6 +946,8 @@ namespace C1
 
 			virtual void Dump(std::ostream& ostr) const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 			Type* m_RepresentType;
 		};
 
@@ -820,6 +967,10 @@ namespace C1
 
 			virtual void Dump(std::ostream& ostr) const;
 
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
+			// Not considering manual offset assign yet
+			void GenerateFieldsLayout();
 		};
 
 		// represent a struct specifier
@@ -901,13 +1052,15 @@ namespace C1
 			std::list<Declarator*>	m_DeclaratorList;
 		};
 
-		class VarDeclStmt : public CompoundDeclaration<ValueDeclaration>
+		class VarDeclStmt : public CompoundDeclaration<VariableDeclaration>
 		{
 		public:
 			VarDeclStmt(StorageClassSpecifierEnum, QualifiedTypeSpecifier*, std::list<Declarator*>*);
 			StorageClassSpecifierEnum StorageClassSpecifier() const { return m_StorageSpecifier; }
 			void SetStorageClassSpecifier(StorageClassSpecifierEnum val) { m_StorageSpecifier = val; }
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		protected:
 			StorageClassSpecifierEnum m_StorageSpecifier;
@@ -943,6 +1096,9 @@ namespace C1
 			virtual QualType DecorateType(QualType base_type) = 0;
 		protected:
 			Declarator(Declarator* base = nullptr);
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 			std::unique_ptr<Declarator> m_Base;
 		};
 
@@ -1018,7 +1174,11 @@ namespace C1
 			ParameterList();
 			//override the original add 
 			//InsertionResult add(ParameterDeclaration* param);
+			void GenerateParameterLayout(size_t ReturnValueSize);
 			void Dump(std::ostream&) const;
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class FunctionalDeclarator : public Declarator
@@ -1078,6 +1238,8 @@ namespace C1
 			{
 				throw std::logic_error("The method or operation is not implemented.");
 			}
+
+			virtual void Generate(C1::PCode::CodeDome& dome);
 
 		protected:
 			std::string m_Name;

@@ -104,6 +104,8 @@
     <ClCompile Include="src\error.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\interpreter.cpp" />
+    <ClCompile Include="src\pcode.cpp" />
     <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
     </ClCompile>
@@ -120,6 +122,7 @@
     <ClInclude Include="include\declaration.h" />
     <ClInclude Include="include\decl_context.h" />
     <ClInclude Include="include\driver.h" />
+    <ClInclude Include="include\interpreter.h" />
     <ClInclude Include="include\operators.h" />
     <ClInclude Include="include\pcode.h" />
     <ClInclude Include="include\errcfg.h" />

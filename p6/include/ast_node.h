@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include "../src/location.hh"
+#include "pcode.h"
 
 namespace C1
 {
@@ -39,7 +40,7 @@ namespace C1
 			//std::string ToString() const/* = 0*/;
 
 			virtual void Dump(std::ostream& ostr) const = 0;
-			//virtual void Generate(CodeGenerator& generator);
+			virtual void Generate(C1::PCode::CodeDome& dome); // Do nothing
 
 			virtual ~Node();
 		private:
@@ -51,6 +52,12 @@ namespace C1
 		{
 			node.Dump(os);
 			return os;
+		}
+
+		inline C1::PCode::CodeDome& operator<<(C1::PCode::CodeDome& dome, Node& node)
+		{
+			node.Generate(dome);
+			return dome;
 		}
 
 		void error(const C1::AST::Node *node, const std::string &msg);

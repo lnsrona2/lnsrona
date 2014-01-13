@@ -15,6 +15,12 @@ C1::AST::Node::~Node()
 {
 
 }
+
+void C1::AST::Node::Generate(C1::PCode::CodeDome& dome)
+{
+
+}
+
 namespace C1
 {
 	namespace AST{
