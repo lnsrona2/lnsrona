@@ -164,7 +164,7 @@ void C1::AST::CallExpr::Generate(C1::PCode::CodeDome& dome)
 	m_FuncExpr->GenerateLValue(dome);
 	// 1 means load stack top to the offset
 	dome.EmplaceInstruction(cal, 1, 0);
-	dome.EmplaceInstruction(isp, 0, -args_size);
+	dome.EmplaceInstruction(isp, 0, -static_cast<int>(args_size));
 }
 
 C1::AST::DeclRefExpr::DeclRefExpr(DeclContext* lookup_context, TypeContext* type_context, const std::string &name)
@@ -2479,7 +2479,7 @@ C1::AST::ReadStmt::ReadStmt(Expr* expr)
 
 void C1::AST::ReadStmt::Dump(std::ostream& os) const
 {
-	os << "read(" << *m_Expr << ")";
+	os << "read(" << *m_Expr << ");" <<endl;
 }
 
 void C1::AST::ReadStmt::Generate(C1::PCode::CodeDome& dome)
@@ -2513,7 +2513,7 @@ C1::AST::WriteStmt::WriteStmt(Expr* expr)
 
 void C1::AST::WriteStmt::Dump(std::ostream& os) const
 {
-	os << "write(" << *m_Expr << ")";
+	os << "write(" << *m_Expr << ")" << endl;
 }
 
 void C1::AST::WriteStmt::Generate(C1::PCode::CodeDome& dome)

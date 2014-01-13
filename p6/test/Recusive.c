@@ -10,18 +10,16 @@ int swap(int i,int j){
 
 int factor(int n)
 {
-	if (!n) return 1;
-	else{
-		{
-		//swap(3,5);
+	if (n==0) 
+		return 1;
+	else
 		return n*factor(n-1);
-		}
-	}
 }
 
 void main()
 {
 	int a;
-	read(&a);
-	write(factor(a));
+	read(a);
+	a = factor(a);
+	write(a);
 }

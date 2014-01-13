@@ -897,7 +897,7 @@ PosfixExpr
 		$$ = PosfixExpr::MakePosfixExpr(OP_POSFIX_SUBSUB,$1);
 		$$->SetLocation(@$);
 	}
-	| PosfixExpr LBRACKET Expr RBRACKET
+	| PosfixExpr "[" Expr "]"
 	{
 		$$ = IndexExpr::MakeIndexExpr($1,$3);
 		$$->SetLocation(@$);
@@ -1219,6 +1219,7 @@ ArgumentList
 	{
 		//cout << "ArgList : AssignExpr" << endl;
 		$$ = new std::list<Expr*>();
+		$$->push_back($1);
 	}
 	;
 
@@ -1298,14 +1299,14 @@ StmtList
 	;
 
 ReadStmt
-	: "read" "(" Expr ")"
+	: "read" "(" Expr ")" ";"
 	{
 		$$ = new ReadStmt($3);
 		$$->SetLocation(@$);
 	}
 	;
 WriteStmt
-	: "write" "(" Expr ")"
+	: "write" "(" Expr ")" ";"
 	{
 		$$ = new WriteStmt($3);
 		$$->SetLocation(@$);
@@ -1390,17 +1391,17 @@ IterationStmt
 	;
 
 SelectionStmt
-	: IF "(" Expr ")" Stmt %prec NOELSE
+	: "if" "(" Expr ")" Stmt %prec NOELSE
 	{
 		$$ = new IfStmt($3,$5);
 		$$->SetLocation(@$);
 	}
-	| IF "(" Expr ")" Stmt ELSE Stmt
+	| "if" "(" Expr ")" Stmt "else" Stmt
 	{
 		$$ = new IfStmt($3,$5,$7);
 		$$->SetLocation(@$);
 	}
-	| SWITCH "(" Expr ")" Stmt
+	| "switch" "(" Expr ")" Stmt
 	{
 		//$$ = new SwitchStmt($3);
 		//$$->SetLocation(@$);

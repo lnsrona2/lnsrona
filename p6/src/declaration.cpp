@@ -93,6 +93,7 @@ C1::AST::FunctionDeclaration::FunctionDeclaration(StorageClassSpecifierEnum scs,
 void C1::AST::FunctionDeclaration::SetDefinition(Stmt* def)
 {
 	m_Definition.reset(def);
+	def->SetParent(this);
 }
 
 void C1::AST::FunctionDeclaration::Generate(C1::PCode::CodeDome& dome)
@@ -122,11 +123,11 @@ int C1::AST::FunctionDeclaration::ReturnValueOffset()
 }
 
 C1::AST::ParameterDeclaration::ParameterDeclaration(QualifiedTypeSpecifier* qts, Declarator* dr)
-: m_QTSpecifier(qts), m_Declarator(dr)
+: ValueDeclaration(SCS_NONE,qts->RepresentType(),dr), m_QTSpecifier(qts), m_Declarator(dr)
 {
 	SetKind(DECL_PARAMETER);
 	SetSourceNode(this);
-	SetDeclType(dr->DecorateType(qts->RepresentType()));
+	//SetDeclType(dr->DecorateType(qts->RepresentType()));
 }
 
 void C1::AST::ParameterDeclaration::Dump(std::ostream& os) const

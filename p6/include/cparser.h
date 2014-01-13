@@ -17,9 +17,9 @@ namespace C1 {
 		}
 
 		AST::TranslationUnit* parse() {
-			//std::ofstream errs(ast_context.FileName + ".log");
-			//parser.set_debug_level(1);
-			//parser.set_debug_stream(errs);
+			std::ofstream errs(ast_context.FileName + ".log");
+			parser.set_debug_level(1);
+			parser.set_debug_stream(errs);
 			parser.parse();
 			return ast_context.CurrentTranslationUnit;
 		}
