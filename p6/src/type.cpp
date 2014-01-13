@@ -445,25 +445,25 @@ C1::AST::TypeContext::TypeContext()
 	m_WordSize = 1;
 	m_WordAlignment = 1;
 
-	m_Char = make_unique<IntegerType>(1);
+	m_Char .reset(new IntegerType(1));
 	m_Char->SetAffiliatedContext(this);
-	m_Short = make_unique<IntegerType>(1);
-	//m_Short = make_unique<IntegerType>(2);
+	m_Short.reset(new IntegerType(1));
+	//m_Short .reset(new IntegerType(2);
 	m_Short->SetAffiliatedContext(this);
-	m_Int = make_unique<IntegerType>(1);
-	//m_Int = make_unique<IntegerType>(4);
+	m_Int.reset(new IntegerType(1));
+	//m_Int .reset(new IntegerType(4);
 	m_Int->SetAffiliatedContext(this);
-	m_Long = make_unique<IntegerType>(1);
+	m_Long.reset(new IntegerType(1));
 	m_Long->SetAffiliatedContext(this);
-	m_Bool = make_unique<BooleanType>();
+	m_Bool.reset(new BooleanType());
 	m_Bool->SetAffiliatedContext(this);
-	m_Void = make_unique<VoidType>();
+	m_Void.reset(new VoidType());
 	m_Void->SetAffiliatedContext(this);
-	m_Float = make_unique<FloatType>(1);
+	m_Float.reset(new FloatType(1));
 	m_Float->SetAffiliatedContext(this);
 	m_String.reset(NewPointerType(MakeConst(Char())));
 	m_String->SetAffiliatedContext(this);
-	m_Error = make_unique<ErrorType>();
+	m_Error.reset(new ErrorType());
 	m_Error->SetAffiliatedContext(this);
 }
 

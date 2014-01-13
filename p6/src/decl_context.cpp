@@ -48,7 +48,7 @@ void C1::AST::DeclContext::force_add(Declaration* decl)
 void DeclContext::Indexize()
 {
 	if (m_pTableView || m_ListView.size() < IndexizeThreshold) return;
-	m_pTableView = std::make_unique<std::multimap<std::reference_wrapper<const std::string>, NamedDeclaration*>>();
+	m_pTableView .reset(new std::multimap<std::reference_wrapper<const std::string>, NamedDeclaration*>());
 	for (auto itr = m_ListView.rbegin(); itr != m_ListView.rend(); ++itr)
 	{
 		auto pNameDecl = dynamic_cast<NamedDeclaration*>(*itr);
