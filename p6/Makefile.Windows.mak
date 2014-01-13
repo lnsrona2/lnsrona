@@ -16,7 +16,6 @@ $(SRC)/c1.tab.cpp : $(CONF)/c1.y
 	$(YACC) -o $(SRC)/c1.tab.cpp $(CONF)/c1.y
 
 
-
 $(SRC)/c1.lex.cpp : $(CONF)/c1.lex
 	$(LEX) -o$(SRC)/c1.lex.cpp $(CONF)/c1.lex
 

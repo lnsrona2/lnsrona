@@ -2,29 +2,34 @@ CINC	 = -Iinclude
 CONF	 = config
 SRC	 = src
 BIN	 = bin
-UTILSRC  = $(SRC)/list.c $(SRC)/error.c $(SRC)/ast.c $(SRC)/generate.c
+SRCLIST  = $(SRC)/stdafx.cpp $(SRC)/interpreter.cpp $(SRC)/ast_node.cpp $(SRC)/error.cpp $(SRC)/declaration.cpp $(SRC)/decl_context.cpp $(SRC)/driver.cpp $(SRC)/pcode.cpp $(SRC)/type.cpp 
 
-CC       = gcc $(CINC)
+CC       = g++ -std=c++11 $(CINC)
 LEX      = flex -i -I 
-YACC     = bison -d -y
+YACC     = bison
+DEL      = rm -f 
 
-all: c0mid inter
+all: cc
 
-inter: $(SRC)/interpret.c 
-	$(CC) -DDEBUG -o $(BIN)/inter $(SRC)/interpret.c -ll -lm
+$(SRC)/c1.tab.cpp : $(CONF)/c1.y
+	$(YACC) -o $(SRC)/c1.tab.cpp $(CONF)/c1.y
 
-$(SRC)/c0ast.tab.c : $(CONF)/c0ast.y
-	$(YACC) -o $(SRC)/c0ast.tab.c $(CONF)/c0ast.y
-
-$(SRC)/c0ast.lex.c : $(CONF)/c0ast.lex
-	$(LEX) -o$(SRC)/c0ast.lex.c $(CONF)/c0ast.lex
+$(SRC)/c1.lex.cpp : $(CONF)/c1.lex
+	$(LEX) -o $(SRC)/c1.lex.cpp $(CONF)/c1.lex
 
 # Generates a compiler for an assignment statement sequence language,
 # which constructs an abstract syntax tree for an input program.
-c0mid : $(SRC)/c0ast.lex.c $(SRC)/c0ast.tab.c
-	$(CC) -DDEBUG -o $(BIN)/c0mid $(SRC)/c0ast.lex.c $(SRC)/symtab.c $(SRC)/c0ast.tab.c $(SRC)/shell.c $(UTILSRC) -ll -lm
+cc : $(SRC)/c1.lex.cpp $(SRC)/c1.tab.cpp
+	$(CC) -DDEBUG -o $(BIN)/c1mid $(SRC)/c1.lex.cpp $(SRC)/c1.tab.cpp  $(SRCLIST)
 
 clean:
-	rm -f *.BAK *.o core *~* *.a 
-	rm -f $(SRC)/*.tab.h $(SRC)/*.tab.c
-	rm -f $(SRC)/*.lex.c *.out
+	$(DEL) $(BIN)/cc
+	$(DEL) $(SRC)/*.tab.hpp $(SRC)/*.tab.cpp
+	$(DEL) test/*.o
+	$(DEL) $(SRC)\c1.lex.cpp
+	$(DEL) $(SRC)\c1.tab.cpp
+	$(DEL) $(SRC)\c1.output
+	$(DEL) $(SRC)\c1.tab.hpp
+	$(DEL) $(SRC)\position.hh
+	$(DEL) $(SRC)\location.hh
+	$(DEL) $(SRC)\stack.hh
