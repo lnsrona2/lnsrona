@@ -35,6 +35,13 @@ int n,f;
 // Function Declaraton & Parameters
 int factorial(int n);
 
+int factorial(int n){
+	if(n==1)	return 1;
+	if(n>1){
+		return n*factorial(n-1);
+	}
+}
+
 void main(){
 	// An err-refernece
 	pFoo = a;
@@ -46,17 +53,11 @@ void main(){
 	a = *ci;
 
 	a = a->next;
-
+	//write(x);
 	a->ba.ia = n;
 	b[3] = a;
 	f=1;
-	factorial(5);
+	//factorial(5);
 }
 
 
-int factorial(int n){
-	if(n==1)	return 1;
-	if(n>1){
-		return n*factorial(n-1);
-	}
-}

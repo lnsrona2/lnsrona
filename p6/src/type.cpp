@@ -158,7 +158,7 @@ bool C1::AST::Type::IsFunctionType() const
 
 bool C1::AST::Type::IsIntegerType() const
 {
-	return m_Kind == Integer;
+	return m_Kind == Integer || m_Kind == Boolean || m_Kind == Character;
 }
 
 bool C1::AST::Type::IsBasicType() const
@@ -221,7 +221,8 @@ size_t C1::AST::StructType::Size() const
 	for (auto decl : *Definition())
 	{
 		auto field = dynamic_cast<FieldDeclaration*>(decl);
-		size += field->DeclType()->Size();
+		if (field)
+			size += field->DeclType()->Size();
 	}
 	return size;
 }
@@ -574,7 +575,7 @@ bool C1::AST::AliasType::Match(const Type* type) const
 }
 
 C1::AST::AliasType::AliasType(QualType aliasd_type, const std::string& name)
-: Type(), m_Base(aliasd_type), m_Name(name)
+: Type(class_kind), m_Base(aliasd_type), m_Name(name)
 {
 	
 }
@@ -589,17 +590,6 @@ std::string C1::AST::AliasType::ToString() const
 	return m_Name;
 }
 
-// Remove the alias type in this type (not recursively)
-QualType remove_alias(QualType lhs)
-{
-	int mask = 0;
-	while (lhs->IsAliasType()) {
-		mask = lhs.Qualifiers();
-		lhs = lhs.As<AliasType>()->Base();
-		lhs.AddQualifiers(mask);
-	}
-	return lhs;
-}
 
 namespace C1
 {
@@ -728,6 +718,17 @@ namespace C1
 				return is_type_assignable(l_element, r_element);
 			}
 			return false;
+		}
+
+		C1::AST::QualType remove_alias(QualType lhs)
+		{
+			int mask = 0;
+			while (lhs->IsAliasType()) {
+				mask = lhs.Qualifiers();
+				lhs = lhs.As<AliasType>()->Base();
+				lhs.AddQualifiers(mask);
+			}
+			return lhs;
 		}
 
 	}

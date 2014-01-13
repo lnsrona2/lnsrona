@@ -201,6 +201,8 @@ namespace C1
 			return os;
 		}
 
+		// Remove the alias type in this type (not recursively)
+		QualType remove_alias(QualType lhs);
 		//bool type_match(const Type &lhs, const Type &rhs);
 		bool type_match(QualType lhs, QualType rhs);
 		inline bool operator==(const QualType &lhs, const QualType &rhs)

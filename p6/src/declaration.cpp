@@ -79,7 +79,7 @@ const Stmt* C1::AST::FunctionDeclaration::LatestDefinition() const
 
 C1::AST::FunctionDeclaration::~FunctionDeclaration()
 {
-
+	SetKind(DECL_FUNCTION);
 }
 
 C1::AST::FunctionDeclaration::FunctionDeclaration(StorageClassSpecifierEnum scs, QualifiedTypeSpecifier *qualified_type_specifier, FunctionalDeclarator* declarator)
@@ -107,6 +107,18 @@ void C1::AST::FunctionDeclaration::Generate(C1::PCode::CodeDome& dome)
 		dome.SP = spx;
 		dome << PCode::gen(PCode::opr, 0, OP_RET);
 	}
+}
+
+int C1::AST::FunctionDeclaration::ReturnValueOffset()
+{
+	auto param_size = 0;
+	for (auto decl : Parameters())
+	{
+		auto param = dynamic_cast<ParameterDeclaration*>(decl);
+		param_size += param->DeclType()->Size();
+	}
+	param_size += ReturnType()->Size();
+	return -param_size;
 }
 
 C1::AST::ParameterDeclaration::ParameterDeclaration(QualifiedTypeSpecifier* qts, Declarator* dr)

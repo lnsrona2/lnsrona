@@ -930,9 +930,14 @@ UnaryExpr
 	{
 		$$ = $1;
 	}
-	| MUL CastExpr
+	| "*" CastExpr
 	{
 		$$ = DereferenceExpr::MakeDereferenceExpr($2);
+		$$->SetLocation(@$);
+	}
+	| "&" CastExpr %prec ADDRESS
+	{
+		$$ = AddressOfExpr::MakeAddressOfExpr($2);
 		$$->SetLocation(@$);
 	}
 	| ADDADD UnaryExpr
@@ -963,11 +968,7 @@ UnaryExpr
 	;
 
 UnaryOperator
-	: AND
-	{
-		$$ = $1;
-	}
-	| ADD
+	: ADD
 	{
 		$$ = $1;
 	}
@@ -1116,7 +1117,7 @@ LogicAndExpr
 	{
 		$$ = $1;
 	}
-	| LogicAndExpr ANDAND BitwiseExpr
+	| LogicAndExpr "&&" BitwiseExpr
 	{
 		$$ = LogicExpr::MakeLogicExpr($2,$1,$3);
 		$$->SetLocation(@$);
@@ -1128,7 +1129,7 @@ LogicOrExpr
 	{
 		$$ = $1;
 	}
-	| LogicOrExpr OROR LogicAndExpr
+	| LogicOrExpr "||" LogicAndExpr
 	{
 		$$ = LogicExpr::MakeLogicExpr($2,$1,$3);
 		$$->SetLocation(@$);
@@ -1142,7 +1143,7 @@ ConditionalExpr
 	};
 
 AssignExpr
-	: BitwiseExpr
+	: ConditionalExpr
 	{
 		$$ = $1;
 	}
@@ -1389,17 +1390,17 @@ IterationStmt
 	;
 
 SelectionStmt
-	: IF LPAREN Expr RPAREN Stmt %prec NOELSE
+	: IF "(" Expr ")" Stmt %prec NOELSE
 	{
 		$$ = new IfStmt($3,$5);
 		$$->SetLocation(@$);
 	}
-	| IF LPAREN Expr RPAREN Stmt ELSE Stmt
+	| IF "(" Expr ")" Stmt ELSE Stmt
 	{
 		$$ = new IfStmt($3,$5,$7);
 		$$->SetLocation(@$);
 	}
-	| SWITCH LPAREN Expr RPAREN Stmt
+	| SWITCH "(" Expr ")" Stmt
 	{
 		//$$ = new SwitchStmt($3);
 		//$$->SetLocation(@$);

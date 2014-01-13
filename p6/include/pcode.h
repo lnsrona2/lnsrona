@@ -115,7 +115,7 @@ namespace C1
 			size_t addr = 0;
 			for (auto word : dome.Datas())
 			{
-				os << word.i << "\t";
+				os << word.c[0] << word.c[1] << word.c[2] << word.c[3];
 			}
 			os << std::endl << "CS:" << std::endl;
 			addr = 0;

@@ -153,15 +153,18 @@ CallExpr* C1::AST::CallExpr::MakeCallExpr(Expr* callee, std::list<Expr*>* args)
 
 void C1::AST::CallExpr::Generate(C1::PCode::CodeDome& dome)
 {
+	auto return_val_size = m_FuncExpr->ReturnType().As<FunctionType>()->ReturnType()->Size();
+	dome.EmplaceInstruction(isp, 0, return_val_size);
+	size_t args_size = 0;
 	for (auto itr = m_Arguments.rbegin(); itr != m_Arguments.rend(); itr++)
 	{
 		dome << **itr;
+		args_size += (*itr)->ReturnType()->Size();
 	}
-	auto return_val_size = m_FuncExpr->ReturnType().As<FunctionType>()->ReturnType()->Size();
-	dome.EmplaceInstruction(isp, 0, return_val_size);
 	m_FuncExpr->GenerateLValue(dome);
 	// 1 means load stack top to the offset
 	dome.EmplaceInstruction(cal, 1, 0);
+	dome.EmplaceInstruction(isp, 0, -args_size);
 }
 
 C1::AST::DeclRefExpr::DeclRefExpr(DeclContext* lookup_context, TypeContext* type_context, const std::string &name)
@@ -561,7 +564,7 @@ IndexExpr* C1::AST::IndexExpr::MakeIndexExpr(Expr* lhs, Expr* rhs)
 
 void C1::AST::IndexExpr::GenerateLValue(C1::PCode::CodeDome& dome)
 {
-	dome << *LeftSubExpr();
+	LeftSubExpr()->GenerateLValue(dome);
 	dome << *RightSubExpr();
 	auto size = LeftSubExpr()->ReturnType().As<DereferencableType>()->Base()->Size();
 	if (size != 1)
@@ -708,6 +711,39 @@ C1::AST::QualType C1::AST::ArithmeticExpr::ReturnType() const
 				//return ltype->AffiliatedContext()->Error();
 		}
 		//error(expr, "no overload for operator <op> with argument type (<lhs-type> , <rhs-type>)");
+	}else
+	{
+		switch (op)
+		{
+			// Integer & Float Type Operators
+		case C1::OP_EQL:
+		case C1::OP_NEQ:
+		case C1::OP_LSS:
+		case C1::OP_GEQ:
+		case C1::OP_GTR:
+		case C1::OP_LEQ:
+		{
+			return ltype->AffiliatedContext()->Bool(); // assume ltye==rtype
+		}
+			break;
+			// Integer Type Operators
+		case C1::OP_ADD:
+		case C1::OP_SUB:
+		case C1::OP_MUL:
+		case C1::OP_DIV:
+		case C1::OP_MOD:
+		case C1::OP_AND:
+		case C1::OP_OR:
+		case C1::OP_XOR:
+		case C1::OP_LSH:
+		case C1::OP_RSH:
+		{
+			return ltype; // assume ltye==rtype
+		}
+			break;
+		default:
+			break;
+		}
 	}
 	return ltype->AffiliatedContext()->Error();
 }
@@ -859,7 +895,7 @@ void C1::AST::LogicExpr::Generate(C1::PCode::CodeDome& dome)
 		int cx = dome.EmplaceInstruction(jpe,1,0);
 		dome << *RightSubExpr();
 		dome << gen(opr, 0, m_Operator);//op is the key!
-		dome.Instruction(cx).a = cx;
+		dome.Instruction(cx).a = dome.InstructionCount();
 	}
 	else if (m_Operator == OP_ANDAND)
 	{
@@ -867,7 +903,7 @@ void C1::AST::LogicExpr::Generate(C1::PCode::CodeDome& dome)
 		int cx = dome.EmplaceInstruction(jpc, 1, 0);
 		dome << *RightSubExpr();
 		dome << gen(opr, 0, m_Operator);//op is the key!
-		dome.Instruction(cx).a = cx;
+		dome.Instruction(cx).a = dome.InstructionCount();
 	}
 }
 
@@ -946,10 +982,17 @@ C1::AST::MemberExpr::MemberExpr(Expr* host, const std::string &member_name, Oper
 {
 	host->SetParent(this);
 	QualType hostType = host->ReturnType();
+	hostType = remove_alias(hostType);
 	if (op == OP_ARROW)
 	{
-		assert(hostType->IsPointerType());
-		hostType = hostType.As<PointerType>()->Base();
+		if (hostType->IsPointerType())
+		{
+			hostType = hostType.As<DereferencableType>()->Base();
+		}
+		else
+		{
+			error(this, "Left operand of operator -> must have pointer types.");
+		}
 	}
 	if (!hostType->IsStructType())
 	{
@@ -1006,7 +1049,10 @@ MemberExpr* C1::AST::MemberExpr::MakeMemberExpr(Expr* host, const std::string &m
 
 void C1::AST::MemberExpr::GenerateLValue(C1::PCode::CodeDome& dome)
 {
-	m_HostExpr->GenerateLValue(dome);
+	if (IsDirect()) 
+		m_HostExpr->GenerateLValue(dome);
+	else 
+		m_HostExpr->Generate(dome);
 	dome << gen(lit,0, m_MemberDeclaration->Offset());
 	dome << gen(opr, 0, OP_ADD);
 }
@@ -1041,7 +1087,44 @@ C1::AST::QualType C1::AST::StringLiteral::ReturnType() const
 
 std::string C1::AST::StringLiteral::DecodeString(const std::string & raw_str)
 {
-	return raw_str;
+	int n = raw_str.length() - 2;
+	char buffer[256];
+	int i, m = 0;
+	for (i = 1; i <= n; i++)
+	{
+		if (raw_str[i] != '\\') buffer[m++] = raw_str[i];
+		else
+		{
+			i++;
+			switch (raw_str[i])
+			{
+			case 'v':
+				buffer[m++] = '\v'; break;
+			case 'f':
+				buffer[m++] = '\f'; break;
+			case 'r':
+				buffer[m++] = '\r'; break;
+			case 't':
+				buffer[m++] = '\t'; break;
+			case 'n':
+				buffer[m++] = '\n'; break;
+			case 'b':
+				buffer[m++] = '\b'; break;
+			default:
+				break;
+			}
+		}
+	}//The cpmlpex string support (allowed character like \n)
+	//	     strncpy(buffer,yytext+1,n);
+	buffer[m] = '\0';
+	return buffer;
+	//yylval.val.type = ConstString;
+	//yylval.val.Int = smp;
+	//smp += m / 4 + 1;
+	////	     smp+=n+1;
+	////	     if (smp%4) smp+=(4-smp%4);  //for the alline
+	////	     printf("Warning : String supporting is not finished yet >_<, use this may cause some unwanted result.\n");
+	//return(NUMBER);
 }
 
 std::string C1::AST::StringLiteral::EncodeString(const std::string & raw_str)
@@ -1332,17 +1415,20 @@ void C1::AST::StructBody::GenerateFieldsLayout()
 C1::AST::StructDeclaration::StructDeclaration(const std::string& name, StructBody* definition)
 : m_Name(name), m_Definition(definition)
 {
+	SetKind(DECL_STRUCT);
 	definition->SetParent(this);
 }
 
 C1::AST::StructDeclaration::StructDeclaration(const std::string& name)
 : m_Name(name), m_Definition(nullptr)
 {
+	SetKind(DECL_STRUCT);
 }
 
 C1::AST::StructDeclaration::StructDeclaration(StructBody* definition)
 : m_Name("%anonymous"), m_Definition(definition)
 {
+	SetKind(DECL_STRUCT);
 	definition->SetParent(this);
 }
 
@@ -1354,21 +1440,27 @@ C1::AST::StructDeclaration::StructDeclaration()
 StructBody* C1::AST::StructDeclaration::LatestDefinition()
 {
 	auto decl = this;
-	while (decl->Definition() == nullptr)
+	while (decl && decl->Definition() == nullptr)
 	{
 		decl = decl->prev();
 	}
-	return decl->Definition();
+	if (decl)
+		return decl->Definition();
+	else
+		return nullptr;
 }
 
 const StructBody* C1::AST::StructDeclaration::LatestDefinition() const
 {
 	auto decl = this;
-	while (decl->Definition() == nullptr)
+	while (decl && decl->Definition() == nullptr)
 	{
 		decl = decl->prev();
 	}
-	return decl->Definition();
+	if (decl)
+		return decl->Definition();
+	else
+		return nullptr;
 }
 
 void C1::AST::StructDeclaration::Dump(std::ostream& os) const
@@ -1393,6 +1485,7 @@ DeclContext::InsertionResult C1::AST::StructDeclaration::AddToContext(DeclContex
 			result = InsertionResult::Success_CompatibleRedefinition;
 			decl->add_last(this);
 			this->SetDeclType(decl->DeclType());
+			this->SetRepresentType(decl->DeclType());
 		}
 		else
 		{
@@ -1513,7 +1606,7 @@ C1::AST::ParameterList::ParameterList()
 
 void C1::AST::ParameterList::GenerateParameterLayout(size_t ReturnValueSize)
 {
-	int base = -static_cast<int>(ReturnValueSize);
+	int base = 0;// -static_cast<int>(ReturnValueSize);
 	for (auto decl : *this)
 	{
 		auto param = dynamic_cast<ParameterDeclaration*>(decl);
@@ -2227,6 +2320,27 @@ void C1::AST::ReturnStmt::Dump(std::ostream& os) const
 	os << "return " << *m_Expr << ";" << endl;
 }
 
+void C1::AST::ReturnStmt::Generate(C1::PCode::CodeDome& dome)
+{
+	dome << *m_Expr;
+	auto addr = ControlingFunction()->ReturnValueOffset();
+	dome << gen(sto, 1, addr);
+	// Full the return value
+}
+
+FunctionDeclaration* C1::AST::ReturnStmt::ControlingFunction()
+{
+	auto node = Parent();
+	FunctionDeclaration* func = dynamic_cast<FunctionDeclaration*>(node);
+	while (node && !func)
+	{
+		node = node->Parent();
+		func = dynamic_cast<FunctionDeclaration*>(node);
+	}
+	if (node == nullptr) return nullptr;
+	else return func;
+}
+
 C1::AST::ContinueStmt::ContinueStmt()
 {
 
@@ -2365,27 +2479,28 @@ C1::AST::ReadStmt::ReadStmt(Expr* expr)
 
 void C1::AST::ReadStmt::Dump(std::ostream& os) const
 {
-	os << "read(" << *m_Expr << ");";
+	os << "read(" << *m_Expr << ")";
 }
 
 void C1::AST::ReadStmt::Generate(C1::PCode::CodeDome& dome)
 {
-	m_Expr->GenerateLValue(dome);
 	auto type = m_Expr->ReturnType();
 	if (type->IsIntegerType()) {
 		dome << gen(opr, PCode::TP_INT, OP_READ);
-		return;
-	}
+	} else
 	if (type->IsFloatType()) {
 		dome << gen(opr, PCode::TP_FLOAT, OP_READ);
-		return;
 	}
+	m_Expr->GenerateLValue(dome);
+	dome << gen(sar, 0, 0);
 }
 
 C1::AST::WriteStmt::WriteStmt(Expr* expr)
 : ExprStmt(expr)
 {
-	if (expr->ReturnType()->IsBasicType())
+	auto type = m_Expr->ReturnType();
+	type.RemoveConst();
+	if (!type->IsBasicType() && type != QualType(type->AffiliatedContext()->String()))
 	{
 		error(this, "argument in Read statement must have basic type");
 	}
@@ -2398,7 +2513,7 @@ C1::AST::WriteStmt::WriteStmt(Expr* expr)
 
 void C1::AST::WriteStmt::Dump(std::ostream& os) const
 {
-	os << "write(" << *m_Expr << ");";
+	os << "write(" << *m_Expr << ")";
 }
 
 void C1::AST::WriteStmt::Generate(C1::PCode::CodeDome& dome)

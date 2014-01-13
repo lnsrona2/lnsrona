@@ -818,6 +818,10 @@ namespace C1
 		public:
 			explicit ReturnStmt(Expr* return_expr = nullptr);
 			void Dump(std::ostream&) const;
+
+			FunctionDeclaration* ControlingFunction();
+			virtual void Generate(C1::PCode::CodeDome& dome);
+
 		};
 
 		class ReadStmt : public ExprStmt

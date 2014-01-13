@@ -6,6 +6,7 @@ void C1::PCode::Interpreter::Interpret(const CodeDome& Codedome)
 {
 	instruction i;	// instruction register
 	const instruction* code = &Codedome.Instruction(0);
+	std::copy(Codedome.Datas().begin(), Codedome.Datas().end(), DS);
 	//	int ti; float tf;	// temp var for float-int cast
 	printf("start C/1\n");
 	SP = 1; BP = 0; IR = 0;
@@ -268,10 +269,14 @@ void C1::PCode::Interpreter::Interpret(const CodeDome& Codedome)
 					break;
 				case TP_STRING:	//Only the string
 				{
-									int j = SS[SP].i;
-									printf("%s", (char*) &(SS[j]));
-									//				while ((s[j].i)) printf("%c",(char)(s[j++].i));
-									break;
+					int j = SS[SP].i;
+					char c = SS[j].c[0];
+					while (c!='\0')
+						putchar(c = SS[j++].c[0]);
+					break;
+					//printf("%s", (char*) &(SS[j]));
+					////				while ((s[j].i)) printf("%c",(char)(s[j++].i));
+					//break;
 				}
 				case TP_INT:
 				default:
@@ -358,7 +363,7 @@ inline long C1::PCode::Interpreter::Locate(long base, long segment, long offset)
 	switch (segment){
 	case PCode::SS: return offset;
 	case PCode::SS_BP: return base + offset;
-	case PCode::DS: return staticsegment + offset;
+	case PCode::DS: return DS-SS + offset;
 	default: return -1; // Error
 	}
 }

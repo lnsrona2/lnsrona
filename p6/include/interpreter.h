@@ -15,9 +15,8 @@ namespace C1
 
 		protected:
 			static const size_t stacksize = 600;
-			static const size_t staticsegment = 400;
-			word DS[staticsegment];
 			word SS[stacksize];	// datastore
+			word DS[stacksize];
 
 			long IR, BP, SP;		// program-, base-, topstack-registers
 

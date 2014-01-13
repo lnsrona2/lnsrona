@@ -29,7 +29,10 @@ int main(int argc, char *argv [])
 	system("PAUSE");
 
 	C1::PCode::Interpreter interpreter;
-	interpreter.SetDebugLevel(2);
+	if (argc >= 3 && argv[3] == "d")
+		interpreter.SetDebugLevel(1);
+	if (argc >= 3 && argv[3] == "d2")
+		interpreter.SetDebugLevel(2);
 	interpreter.Interpret(codes);
 	//system("PAUSE");
 }
