@@ -271,8 +271,10 @@ void C1::PCode::Interpreter::Interpret(const CodeDome& Codedome)
 				{
 					int j = SS[SP].i;
 					char c = SS[j].c[0];
-					while (c!='\0')
-						putchar(c = SS[j++].c[0]);
+					while (c != '\0') {
+						printf("%c", c);
+						c = SS[++j].c[0];
+					}
 					break;
 					//printf("%s", (char*) &(SS[j]));
 					////				while ((s[j].i)) printf("%c",(char)(s[j++].i));

@@ -24,5 +24,5 @@ void main()
 	write(n1.data);
 	write("\nn2.data = ");
 	write(n2.data);
-	write("\nn");
+	write("\n");
 }
