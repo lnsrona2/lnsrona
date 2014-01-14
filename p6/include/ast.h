@@ -1178,7 +1178,7 @@ namespace C1
 			ParameterList();
 			//override the original add 
 			//InsertionResult add(ParameterDeclaration* param);
-			void GenerateParameterLayout(size_t ReturnValueSize);
+			void GenerateParameterLayout();
 			void Dump(std::ostream&) const;
 
 			virtual void Generate(C1::PCode::CodeDome& dome);

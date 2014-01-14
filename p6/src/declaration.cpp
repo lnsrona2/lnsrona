@@ -35,7 +35,7 @@ DeclContext::InsertionResult C1::AST::FunctionDeclaration::AddToContext(DeclCont
 	const auto name_policy = NameCollisonPolicy::CompatibleRedefinable;
 
 	InsertionResult result = InsertionResult::Success;
-	auto decl = context.lookup_local<FunctionDeclaration>(this->Name());
+	auto decl = context.lookup<FunctionDeclaration>(this->Name());
 	if (decl)
 	{
 		if (Declaration::CheckCompatible(decl, this))
@@ -100,6 +100,7 @@ void C1::AST::FunctionDeclaration::Generate(C1::PCode::CodeDome& dome)
 {
 	if (m_Definition)
 	{
+		Parameters().Generate(dome);
 		SetOffset(dome.InstructionCount());
 		dome << PCode::gen(PCode::isp, 0, PCode::CodeDome::CallStorageSize);
 		int spx = dome.SP;
@@ -236,7 +237,9 @@ C1::AST::ValueDeclaration::ValueDeclaration(StorageClassSpecifierEnum scs, QualT
 	SetKind(DECL_VALUE);
 	SetSourceNode(declarator);
 	SetDeclType(declarator->DecorateType(base_type));
-	SetName(dynamic_cast<IdentifierDeclarator*>(declarator->Atom())->Identifier());
+	auto id = dynamic_cast<IdentifierDeclarator*>(declarator->Atom());
+	if (id)
+		SetName(id->Identifier());
 }
 
 C1::AST::ValueDeclaration::ValueDeclaration()

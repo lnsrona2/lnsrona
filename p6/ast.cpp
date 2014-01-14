@@ -1477,7 +1477,7 @@ DeclContext::InsertionResult C1::AST::StructDeclaration::AddToContext(DeclContex
 	const auto name_policy = NameCollisonPolicy::CompatibleRedefinable;
 
 	InsertionResult result = InsertionResult::Success;
-	auto decl = context.lookup_local<StructDeclaration>(this->Name());
+	auto decl = context.lookup<StructDeclaration>(this->Name());
 	if (decl)
 	{
 		if (Declaration::CheckCompatible(decl, this))
@@ -1604,7 +1604,7 @@ C1::AST::ParameterList::ParameterList()
 {
 }
 
-void C1::AST::ParameterList::GenerateParameterLayout(size_t ReturnValueSize)
+void C1::AST::ParameterList::GenerateParameterLayout()
 {
 	int base = 0;// -static_cast<int>(ReturnValueSize);
 	for (auto decl : *this)
@@ -1620,6 +1620,7 @@ void C1::AST::ParameterList::GenerateParameterLayout(size_t ReturnValueSize)
 
 void C1::AST::ParameterList::Generate(C1::PCode::CodeDome& dome)
 {
+	GenerateParameterLayout();
 }
 
 //ParameterList::InsertionResult ParameterList::add(ParameterDeclaration* param)

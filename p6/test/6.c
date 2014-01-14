@@ -15,7 +15,14 @@ void main()
 {
 	int D[5] = {5,3,4,1,2};
 	struct node n2 = {18,&n1}; 
-	root.data = 3;
-	root.pNext = &n1;
+	Node (*pFunc)(Node,Node) = & LinkNode;
+	write("please input the root.data : ");
+	read(root.data);
+	(*pFunc)(&root,&n1);
 	root.pNext->data = root.data;
+	write("\nn1.data = ");
+	write(n1.data);
+	write("\nn2.data = ");
+	write(n2.data);
+	write("\nn");
 }
