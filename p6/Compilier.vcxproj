@@ -84,9 +84,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ast.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="src\translation_unit.cpp" />
     <ClCompile Include="src\ast_node.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
@@ -95,20 +93,24 @@
     <ClCompile Include="src\declaration.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\declarator.cpp" />
     <ClCompile Include="src\decl_context.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\decl_stmt.cpp" />
     <ClCompile Include="src\driver.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\error.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\expr.cpp" />
     <ClCompile Include="src\interpreter.cpp" />
     <ClCompile Include="src\pcode.cpp" />
     <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\stmt.cpp" />
     <ClCompile Include="src\type.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
     </ClCompile>
@@ -120,8 +122,10 @@
     <ClInclude Include="include\cparser.h" />
     <ClInclude Include="include\cscanner.h" />
     <ClInclude Include="include\declaration.h" />
+    <ClInclude Include="include\declarator.h" />
     <ClInclude Include="include\decl_context.h" />
     <ClInclude Include="include\driver.h" />
+    <ClInclude Include="include\expr.h" />
     <ClInclude Include="include\interpreter.h" />
     <ClInclude Include="include\operators.h" />
     <ClInclude Include="include\pcode.h" />
@@ -130,8 +134,11 @@
     <ClInclude Include="include\opcfg.h" />
     <ClInclude Include="include\pcodegen.h" />
     <ClInclude Include="include\stdafx.h" />
+    <ClInclude Include="include\stmt.h" />
+    <ClInclude Include="include\translation_unit.h" />
     <ClInclude Include="include\type.h" />
     <ClInclude Include="include\type_qualifiers.h" />
+    <ClInclude Include="include\decl_stmt.h" />
     <ClInclude Include="src\c1.tab.hpp" />
     <ClInclude Include="src\location.hh" />
     <ClInclude Include="src\position.hh" />

@@ -266,7 +266,7 @@ namespace C1
 
 			ParameterList& Parameters();
 			QualType ReturnType();
-			// It should always be negtive
+			// It should always be negative
 			int ReturnValueOffset();
 
 			void Dump(std::ostream&) const;

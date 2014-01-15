@@ -14,6 +14,44 @@ ParameterList& C1::AST::FunctionDeclaration::Parameters()
 	return m_Declarator->Parameters();
 }
 
+void C1::AST::ParameterList::Dump(std::ostream& os) const
+{
+	if (empty()){
+		os << "()";
+		return;
+	}
+	os << "(";
+	for (auto param : *this)
+	{
+		os << *static_cast<ParameterDeclaration*>(param) << ", ";
+	}
+	os << "\b\b)";
+}
+
+C1::AST::ParameterList::ParameterList()
+{
+}
+
+void C1::AST::ParameterList::GenerateParameterLayout()
+{
+	int base = 0;// -static_cast<int>(ReturnValueSize);
+	for (auto decl : *this)
+	{
+		auto param = dynamic_cast<ParameterDeclaration*>(decl);
+		if (param)
+		{
+			base -= param->DeclType()->Size();
+			param->SetOffset(base);
+		}
+	}
+}
+
+void C1::AST::ParameterList::Generate(C1::PCode::CodeDome& dome)
+{
+	GenerateParameterLayout();
+}
+
+
 C1::AST::QualType C1::AST::FunctionDeclaration::ReturnType()
 {
 	return dynamic_cast<FunctionType*>(DeclType().get())->ReturnType();

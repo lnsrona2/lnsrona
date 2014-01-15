@@ -14,7 +14,7 @@ Node LinkNode(Node p,Node p2)
 void main()
 {
 	int D[5] = {5,3,4,1,2};
-	struct node n2 = {18,&n1}; 
+	struct node n2 = {18,7}; 
 	Node (*pFunc)(Node,Node) = & LinkNode;
 	write("please input the root.data : ");
 	read(root.data);

@@ -17,6 +17,10 @@ namespace C1
 		class Declarator;
 		class Stmt;
 		class CompoundStmt;
+		class Type;
+		class Enumerator;
+		class FunctionalDeclarator;
+		class TranslationUnit;
 
 		class Node
 		{
@@ -62,5 +66,32 @@ namespace C1
 
 		void error(const C1::AST::Node *node, const std::string &msg);
 		void error(const C1::location &loc, const std::string &msg);
+
+		// Represent the node which contains a collection of child but not some specified number of children
+		class ScopeNode
+		{
+		public:
+			std::list<Node*>& Children() { return m_Chilren; }
+			const std::list<Node*>& Children() const { return m_Chilren; }
+			~ScopeNode()
+			{
+				for (auto& node : m_Chilren)
+				{
+					delete node;
+					node = nullptr;
+				}
+			}
+		protected:
+			//void Dump(std::ostream&) const;
+			std::list<Node*> m_Chilren;
+		};
+
+		class Comment : public Node
+		{
+		public:
+			const std::string &Content() const;
+			std::string &Content();
+		};
+
 	}
 }
