@@ -416,7 +416,7 @@ InitDeclarator
 	;
 
 Initializer
-	: ConstantExpr
+	: ConditionalExpr
 	{
 		$$ = new AtomInitializer($1);
 		$$->SetLocation(@$);

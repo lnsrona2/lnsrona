@@ -717,6 +717,27 @@ namespace C1
 				auto r_element = list->ElementTypes().front();
 				return is_type_assignable(l_element, r_element);
 			}
+			if(lhs->IsStructType())
+			{
+				auto struct_type = lhs.As<StructType>();
+				if (!struct_type->Definition())
+					return false;
+				if (!rhs->IsInitializerListType()) return false;
+				auto list_type = rhs.As<InitializerListType>();
+				auto element_types = list_type->ElementTypes();
+				if (element_types.size() != struct_type->Size())
+					return false;
+				auto decl_itr = struct_type->Definition()->begin();
+				for (auto list_itr = element_types.begin(); list_itr != element_types.end(); ++list_itr, ++decl_itr)
+				{
+					auto field = dynamic_cast<FieldDeclaration*>(*decl_itr);
+					if (!(field->DeclType() <= (*list_itr)))
+					{
+						return false;
+					}
+				}
+				return true;
+			}
 			return false;
 		}
 

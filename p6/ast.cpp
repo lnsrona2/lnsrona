@@ -1684,9 +1684,23 @@ C1::AST::QualType C1::AST::InitDeclarator::DecorateType(QualType base_type)
 			if (arr_type->Length() < static_cast<int>(list->size()))
 				error(this, "Initializer-list size don't match the object-array size");
 		}
-		else
+		else if (res_type->IsStructType())
 		{
-			error(this,"Initializer-list can only initialize array type object");
+			auto struct_type = res_type.As<StructType>();
+			if (!struct_type->Definition())
+			{
+				error(this, "Can not instantiate a incomplete type");
+			}
+			else
+			{
+				if (!(struct_type <= list->ReturnType()))
+				{
+					error(this, "Initializer List type don't match struct type.");
+				}
+			}
+		} else
+		{
+			error(this,"Initializer-list can only initialize array or struct type object");
 		}
 		return res_type;
 	}
@@ -2323,9 +2337,12 @@ void C1::AST::ReturnStmt::Dump(std::ostream& os) const
 
 void C1::AST::ReturnStmt::Generate(C1::PCode::CodeDome& dome)
 {
-	dome << *m_Expr;
-	auto addr = ControlingFunction()->ReturnValueOffset();
-	dome << gen(sto, 1, addr);
+	if (m_Expr)
+	{
+		dome << *m_Expr;
+		auto addr = ControlingFunction()->ReturnValueOffset();
+		dome << gen(sto, 1, addr);
+	}
 	dome << gen(opr, 0, OP_RET);
 	// Full the return value
 }

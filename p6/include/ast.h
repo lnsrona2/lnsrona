@@ -53,6 +53,14 @@ namespace C1
 		public:
 			std::list<Node*>& Children() { return m_Chilren; }
 			const std::list<Node*>& Children() const { return m_Chilren; }
+			~ScopeNode()
+			{
+				for (auto& node : m_Chilren)
+				{
+					delete node;
+					node = nullptr;
+				}
+			}
 		protected:
 			//void Dump(std::ostream&) const;
 			std::list<Node*> m_Chilren;
@@ -987,6 +995,8 @@ namespace C1
 			StructDeclaration(StructBody* definition);
 			StructDeclaration();
 
+			virtual bool IsLiteralNode() const { return true; }
+
 			const std::string & Name() const { return m_Name; }
 			StructBody* Definition() { return m_Definition.get(); }
 			const StructBody* Definition() const { return m_Definition.get(); }
@@ -1046,7 +1056,17 @@ namespace C1
 			std::list<T*>& Declarations() { return m_DeclarationList; }
 		protected:
 			CompoundDeclaration(QualifiedTypeSpecifier* QTSpecifier, std::list<Declarator*> &&declarator_list);
-
+			~CompoundDeclaration()
+			{
+				for (auto& declarator : m_DeclaratorList)
+				{
+					if (declarator)
+					{
+						delete declarator;
+						declarator = 0;
+					}
+				}
+			}
 			void Dump(std::ostream& os) const;
 
 			std::unique_ptr<QualifiedTypeSpecifier> m_QTSpecifier;

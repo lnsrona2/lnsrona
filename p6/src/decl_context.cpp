@@ -45,6 +45,19 @@ void C1::AST::DeclContext::force_add(Declaration* decl)
 	decl->SetAffiliation(this);
 }
 
+C1::AST::DeclContext::~DeclContext()
+{
+	for (auto& decl : m_ListView)
+	{
+		// if it's an literal node, than we don't destroy it here
+		if (!decl->IsLiteralNode())
+		{
+			delete decl;
+			decl = nullptr;
+		}
+	}
+}
+
 void DeclContext::Indexize()
 {
 	if (m_pTableView || m_ListView.size() < IndexizeThreshold) return;

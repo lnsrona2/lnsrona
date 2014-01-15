@@ -59,6 +59,7 @@ namespace C1
 			{
 				return m_ParentContext;
 			}
+			~DeclContext();
 			void set_parent(DeclContext* val)
 			{
 				m_ParentContext = val;

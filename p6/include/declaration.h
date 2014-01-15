@@ -118,6 +118,7 @@ namespace C1
 			// Invoked by DeclContext::add(Declaration*)
 			virtual DeclContext::InsertionResult AddToContext(DeclContext& context);
 			virtual ~Declaration();
+			virtual bool IsLiteralNode() const { return false; }
 
 			// Well , this is incorrect!!!
 			static bool CheckCompatible(const Declaration* lsh,const Declaration* rhs);
@@ -253,6 +254,7 @@ namespace C1
 			const FunctionalDeclarator* DeclDeclarator() const { return m_Declarator.get(); }
 			FunctionalDeclarator* DeclDeclarator() { return m_Declarator.get(); }
 
+			virtual bool IsLiteralNode() const { return true; }
 			//const QualType FunctionType() const;
 			//QualType FunctionType() ;
 
