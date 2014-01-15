@@ -2326,6 +2326,7 @@ void C1::AST::ReturnStmt::Generate(C1::PCode::CodeDome& dome)
 	dome << *m_Expr;
 	auto addr = ControlingFunction()->ReturnValueOffset();
 	dome << gen(sto, 1, addr);
+	dome << gen(opr, 0, OP_RET);
 	// Full the return value
 }
 
