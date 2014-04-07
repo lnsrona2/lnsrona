@@ -1,6 +1,6 @@
 #pragma once
 
-#include "c1.tab.hpp"
+#include "..\src\c1.tab.hpp"
 #include "ast_context.h"
 
 // Only include FlexLexer.h if it hasn't been already included
